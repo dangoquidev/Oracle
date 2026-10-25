@@ -6,8 +6,9 @@ Pas d'argent ni de monnaie virtuelle : des points et des classements. Compétiti
 Les données (calendrier, équipes, logos, résultats) viennent de l'API Cargo de [Leaguepedia](https://lol.fandom.com),
 mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API directement.
 
-> État : **Phase 1 (MVP)**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire et vote par boutons.
-> Les locks visibles, résultats et points, classements, récaps, rappels, commandes admin, stats et backups arrivent dans les phases suivantes.
+> État : **Phase 2**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
+> rappels et répartition des votes au lock, `/matches`, `/admin open|close`.
+> Les résultats et points, classements, récaps, autres commandes admin, stats et backups arrivent dans les phases suivantes.
 
 ## Sommaire
 
@@ -35,7 +36,25 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
    Il mentionne le rôle et ajoute un bouton « Faire mes pronos ».
 5. Le bouton ouvre un parcours éphémère match par match : vainqueur pour un Bo1, score exact pour un Bo3/Bo5.
    Les pronos sont modifiables jusqu'à la fermeture des votes. Un vote compte si l'interaction Discord est antérieure au lock.
-6. Si le rôle ou le salon configuré est supprimé, le bot se met en pause et prévient les admins.
+6. Si les rappels sont activés, le bot mentionne le rôle X minutes avant chaque fermeture des votes (une fois par groupe de
+   matchs qui ferment ensemble).
+7. Les votes restent cachés jusqu'au lock. Ensuite, le bot publie la répartition des votes du serveur (ex. 70 % G2 / 30 % FNC,
+   avec le score le plus joué), qui s'affiche aussi dans le parcours et dans `/matches`.
+8. L'annonce publiée est mise à jour automatiquement quand le calendrier change (équipes connues, horaires, logos), sans
+   mentionner le rôle une seconde fois.
+9. Si le rôle ou le salon configuré est supprimé, le bot se met en pause et prévient les admins.
+
+### Commandes
+
+| Commande                            | Qui              | Effet                                                                        |
+| ----------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `/configure`                        | Gérer le serveur | Assistant de configuration (obligatoire avant toute utilisation)             |
+| `/matches [semaine] [compétition]`  | Tous             | Matchs de la semaine actuelle, précédente ou suivante, avec l'état des votes |
+| `/admin open semaine:… \| match:…`  | Gérer le serveur | Rouvre les votes jusqu'au début de chaque match                              |
+| `/admin close semaine:… \| match:…` | Gérer le serveur | Ferme les votes immédiatement                                                |
+
+Les réponses de `/matches` et `/admin` sont éphémères. Les options `semaine` et `match` de `/admin` proposent les semaines et
+matchs à venir en autocomplétion.
 
 ## Prérequis
 
@@ -128,8 +147,9 @@ docker compose logs -f bot
 ```
 
 - Le conteneur `bot` expose un healthcheck (`GET /health` : base joignable et connexion Discord prête).
-- Les jobs planifiés (sync toutes les 6 h, vérification de publication chaque minute) sont persistés par pg-boss
-  dans le schéma `pgboss` et survivent aux redémarrages.
+- Les jobs planifiés sont persistés par pg-boss dans le schéma `pgboss` et survivent aux redémarrages :
+  - `schedule-sync` (toutes les 6 h) : sync Leaguepedia, emojis des logos, mise à jour des annonces publiées ;
+  - `guild-tick` (chaque minute) : publications dues, rappels avant le lock, révélation des votes après le lock.
 - Mise à jour : `git pull && docker compose up -d --build`.
 
 ## Architecture
