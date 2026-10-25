@@ -25,8 +25,14 @@ export default tseslint.config(
         'error',
         {
           patterns: [
-            { group: ['discord.js', 'drizzle-orm*', 'pg', 'pg-boss', 'pino', 'zod'], message: 'Domain must stay pure.' },
-            { group: ['**/application/**', '**/infrastructure/**', '**/interfaces/**'], message: 'Domain must not depend on outer layers.' },
+            {
+              group: ['discord.js', 'drizzle-orm*', 'pg', 'pg-boss', 'pino', 'zod'],
+              message: 'Domain must stay pure.',
+            },
+            {
+              group: ['**/application/**', '**/infrastructure/**', '**/interfaces/**'],
+              message: 'Domain must not depend on outer layers.',
+            },
           ],
         },
       ],
@@ -39,8 +45,14 @@ export default tseslint.config(
         'error',
         {
           patterns: [
-            { group: ['discord.js', 'drizzle-orm*', 'pg', 'pg-boss', 'pino'], message: 'Application depends on ports only.' },
-            { group: ['**/infrastructure/**', '**/interfaces/**'], message: 'Application must not depend on adapters.' },
+            {
+              group: ['discord.js', 'drizzle-orm*', 'pg', 'pg-boss', 'pino'],
+              message: 'Application depends on ports only.',
+            },
+            {
+              group: ['**/infrastructure/**', '**/interfaces/**'],
+              message: 'Application must not depend on adapters.',
+            },
           ],
         },
       ],
