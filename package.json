@@ -13,8 +13,7 @@
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:all": "vitest run --coverage",
-    "db:generate": "drizzle-kit generate",
-    "commands:register": "tsx --env-file=.env scripts/register-commands.ts"
+    "db:generate": "drizzle-kit generate"
   },
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.33.0",
