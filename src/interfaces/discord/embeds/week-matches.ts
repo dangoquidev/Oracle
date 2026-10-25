@@ -3,7 +3,15 @@ import type { WeekMatchesItem, WeekMatchesResult } from '../../../application/us
 import type { Locale } from '../../../domain/guild/guild-settings.js';
 import { BRAND_COLOR, type MessageView } from '../components/payload.js';
 import { messages, type Messages } from '../i18n/index.js';
-import { dayHeading, localDayKey, matchup, relative, shortTime, truncate } from './formatting.js';
+import {
+  dayHeading,
+  localDayKey,
+  matchup,
+  outcomeLabel,
+  relative,
+  shortTime,
+  truncate,
+} from './formatting.js';
 import { voteLine } from './vote-lines.js';
 
 export function renderWeekMatches(
@@ -39,7 +47,14 @@ export function renderWeekMatches(
 }
 
 function stateLine(item: WeekMatchesItem, t: Messages): string {
+  const result = item.state === 'closed' ? outcomeLabel(item.outcome, item.match, t) : null;
   const state =
-    item.state === 'open' ? t.matches.state.open(relative(item.lockAt)) : t.matches.state[item.state];
-  return item.distribution ? `${state} · ${voteLine(item.match, item.distribution, t)}` : state;
+    item.state === 'open'
+      ? t.matches.state.open(relative(item.lockAt))
+      : result
+        ? `${t.matches.state.closed} · **${result}**`
+        : t.matches.state[item.state];
+  return item.distribution && item.distribution.total > 0
+    ? `${state} · ${voteLine(item.match, item.distribution, t)}`
+    : state;
 }

@@ -26,12 +26,18 @@ describe('command definitions', () => {
     expect(competition.choices?.map((choice) => choice.value)).toEqual(['worlds', 'lec']);
   });
 
-  it('offers open and close subcommands with autocompleted targets', () => {
+  it('offers admin subcommands with autocompleted targets', () => {
     const subcommands = (byName.get('admin')?.options ?? []) as {
       name: string;
-      options?: { name: string; autocomplete?: boolean }[];
+      options?: { name: string; autocomplete?: boolean; required?: boolean }[];
     }[];
-    expect(subcommands.map((sub) => sub.name)).toEqual(['open', 'close']);
+    expect(subcommands.map((sub) => sub.name)).toEqual(['open', 'close', 'result', 'cancel', 'recalc']);
+    expect(
+      subcommands[2]?.options?.map((option) => [option.name, option.required, option.autocomplete]),
+    ).toEqual([
+      ['match', true, true],
+      ['score', true, true],
+    ]);
     expect(subcommands[0]?.options?.map((option) => [option.name, option.autocomplete])).toEqual([
       ['week', true],
       ['match', true],

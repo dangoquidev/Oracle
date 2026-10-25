@@ -45,7 +45,7 @@ export function renderVoteReveal(reveal: VoteReveal, useEmojis: boolean): Messag
       new EmbedBuilder()
         .setColor(BRAND_COLOR)
         .setTitle(t.reveal.title(reveal.competitionName, reveal.weekName))
-        .setDescription(truncate([t.reveal.description, '', ...blocks].join('\n\n'), 4096)),
+        .setDescription(truncate([t.reveal.description, ...blocks].join('\n\n'), 4096)),
     ],
     components: [],
   };

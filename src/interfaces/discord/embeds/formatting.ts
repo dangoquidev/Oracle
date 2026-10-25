@@ -2,7 +2,10 @@ import { time, TimestampStyles } from 'discord.js';
 import { DateTime } from 'luxon';
 import type { MatchView, TeamView } from '../../../application/read-models/views.js';
 import type { Locale } from '../../../domain/guild/guild-settings.js';
+import type { MatchResult } from '../../../domain/match/match.js';
 import type { PredictionChoice } from '../../../domain/prediction/prediction-choice.js';
+import type { MatchOutcome } from '../../../domain/scoring/match-outcome.js';
+import type { PredictionOutcome } from '../../../domain/scoring/score-prediction.js';
 import type { Messages } from '../i18n/index.js';
 
 /** Renders a team with its logo emoji when available and allowed in the target channel. */
@@ -26,6 +29,22 @@ export function choiceLabel(choice: PredictionChoice, match: MatchView, t: Messa
   const { team1, team2 } = choice.score;
   const winner = team1 > team2 ? match.team1 : match.team2;
   return `${Math.max(team1, team2)}-${Math.min(team1, team2)} ${shortName(winner, t)}`;
+}
+
+/** "G2 2-1 FNC", or "G2 wins" when only the winner is known. */
+export function resultLabel(result: MatchResult, match: MatchView, t: Messages): string {
+  if (!result.score) return t.results.winner(shortName(result.winner === 1 ? match.team1 : match.team2, t));
+  return `${shortName(match.team1, t)} ${result.score.team1}-${result.score.team2} ${shortName(match.team2, t)}`;
+}
+
+export function outcomeLabel(outcome: MatchOutcome, match: MatchView, t: Messages): string | null {
+  if (outcome.kind === 'decided') return resultLabel(outcome.result, match, t);
+  return outcome.kind === 'void' ? t.results.cancelled : null;
+}
+
+export function judgementLabel(judgement: PredictionOutcome, t: Messages): string {
+  if (judgement.status === 'scored') return t.results.points(judgement.points);
+  return judgement.status === 'void' ? t.results.void : t.results.pending;
 }
 
 /** Discord renders these in each viewer's own time zone. */

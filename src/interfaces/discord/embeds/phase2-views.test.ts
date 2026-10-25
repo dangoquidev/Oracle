@@ -84,7 +84,9 @@ describe('lock notices', () => {
     );
     const embed = view.embeds[0]?.toJSON();
     expect(embed?.title).toBe('🔒 Voting closed · LEC · Week 2');
-    expect(embed?.description).toContain('**FNC** vs **G2**\nFNC **67%** · **33%** G2 · 3 votes');
+    expect(embed?.description).toBe(
+      'Here is what the server predicted:\n\n**FNC** vs **G2**\nFNC **67%** · **33%** G2 · 3 votes',
+    );
   });
 });
 
@@ -101,9 +103,16 @@ describe('renderWeekMatches', () => {
             match: bo3,
             lockAt: new Date('2026-08-01T14:00:00Z'),
             state: 'locked',
+            outcome: { kind: 'pending' },
             distribution: { total: 2, team1Percent: 50, team2Percent: 50, topScore: null },
           },
-          { match: bo1, lockAt: new Date('2026-08-01T17:00:00Z'), state: 'open', distribution: null },
+          {
+            match: bo1,
+            lockAt: new Date('2026-08-01T17:00:00Z'),
+            state: 'open',
+            outcome: { kind: 'pending' },
+            distribution: null,
+          },
         ],
       },
     ],
@@ -131,11 +140,18 @@ describe('renderWeekMatches', () => {
           {
             week: weekView(week2, []),
             items: [
-              { match: bo1, lockAt: new Date(), state: 'closed', distribution: null },
+              {
+                match: bo1,
+                lockAt: new Date(),
+                state: 'closed',
+                outcome: { kind: 'pending' },
+                distribution: null,
+              },
               {
                 match: { ...bo1, team2: null },
                 lockAt: new Date(),
                 state: 'awaiting-opponents',
+                outcome: { kind: 'pending' },
                 distribution: null,
               },
             ],
@@ -147,6 +163,45 @@ describe('renderWeekMatches', () => {
     ).embeds[0]?.toJSON().description;
     expect(played).toContain('🏁 over');
     expect(played).toContain('⏳ teams to be decided');
+  });
+
+  it('shows results and cancellations', () => {
+    const played = {
+      ...bo3,
+      status: 'completed' as const,
+      result: { winner: 1 as const, score: { team1: 2, team2: 1 } },
+    };
+    const description = renderWeekMatches(
+      {
+        ...result,
+        weeks: [
+          {
+            week: weekView(week2, []),
+            items: [
+              {
+                match: played,
+                lockAt: new Date(),
+                state: 'closed',
+                outcome: { kind: 'decided', result: played.result },
+                distribution: null,
+              },
+              {
+                match: bo1,
+                lockAt: new Date(),
+                state: 'cancelled',
+                outcome: { kind: 'void' },
+                distribution: null,
+              },
+            ],
+          },
+        ],
+      },
+      'fr',
+      false,
+    ).embeds[0]?.toJSON().description;
+    expect(description).toContain('🏁 terminé · **G2 2-1 FNC**');
+    expect(description).toContain('🚫 match annulé');
+    expect(description).not.toContain('aucun vote');
   });
 
   it('notes an empty week', () => {

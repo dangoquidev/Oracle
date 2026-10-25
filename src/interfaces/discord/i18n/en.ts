@@ -56,6 +56,15 @@ export const en: Messages = {
     title: (competition: string, week: string) => `🔒 Voting closed · ${competition} · ${week}`,
     description: 'Here is what the server predicted:',
   },
+  results: {
+    winner: (team: string) => `${team} wins`,
+    points: (points: number) => (points > 1 ? `+${points} pts` : `+${points} pt`),
+    cancelled: 'match cancelled',
+    void: 'cancelled',
+    result: 'Result',
+    yourPoints: 'Your points',
+    pending: 'waiting for the result',
+  },
   matches: {
     title: (competition: string, week: string) => `${competition} · ${week}`,
     empty: 'No week found for that period.',
@@ -65,6 +74,7 @@ export const en: Messages = {
       locked: '🔒 voting closed',
       'awaiting-opponents': '⏳ teams to be decided',
       closed: '🏁 over',
+      cancelled: '🚫 match cancelled',
     },
   },
   admin: {
@@ -72,12 +82,24 @@ export const en: Messages = {
       `🔓 Voting reopened for ${count} match${count > 1 ? 'es' : ''} (${target}), until each match starts.`,
     closed: (count: number, target: string) =>
       `🔒 Voting closed for ${count} match${count > 1 ? 'es' : ''} (${target}).`,
+    resultSaved: (match: string, result: string, rescored: number) =>
+      `✅ ${match} result set to ${result}. ${rescored} prediction(s) rescored.`,
+    resultRestored: (match: string, rescored: number) =>
+      `↩️ ${match} uses the Leaguepedia result again. ${rescored} prediction(s) rescored.`,
+    cancelled: (match: string, rescored: number) =>
+      `🚫 ${match} is cancelled: its predictions are ignored. ${rescored} prediction(s) updated.`,
+    recalculated: (changed: number) => `🔄 Points recalculated: ${changed} prediction(s) changed.`,
+    providerResult: 'Leaguepedia result (undo the correction)',
+    invalidScore: 'Pick a result from the suggestions.',
     missingTarget: 'Pick a week or a match.',
     bothTargets: 'Pick either a week or a match, not both.',
     errors: {
       'target-not-found': 'Week or match not found. Use the command suggestions.',
       'no-open-match': 'No upcoming match in that selection.',
       'guild-not-active': 'The bot is not active on this server.',
+      'match-not-found': 'Match not found. Use the command suggestions.',
+      'match-not-started': 'This match has not started yet: its result cannot be set.',
+      'invalid-result': 'This score is not possible for this match format.',
     },
   },
   journey: {
@@ -94,6 +116,7 @@ export const en: Messages = {
       locked: '🔒 Voting is closed for this match.',
       'awaiting-opponents': '⏳ Teams are not known yet.',
       closed: '🏁 This match is over.',
+      cancelled: '🚫 This match was cancelled, its predictions do not count.',
     },
     previous: 'Previous',
     next: 'Next',
@@ -106,6 +129,7 @@ export const en: Messages = {
       locked: '🔒 Too late, voting is closed for this match.',
       'opponents-unknown': '⏳ Teams are not known yet.',
       'match-not-open': '🏁 This match is no longer open.',
+      'match-cancelled': '🚫 This match was cancelled.',
       'invalid-choice': 'This pick is not valid for this match.',
       'match-not-found': 'This match could not be found.',
       'guild-not-active': 'The bot is not active on this server.',
@@ -211,8 +235,13 @@ export const en: Messages = {
       description: 'PronoBot administration commands',
       open: 'Reopen voting for a week or a match',
       close: 'Close voting for a week or a match',
+      result: 'Force or correct a match result',
+      cancel: 'Cancel a match (its predictions are ignored)',
+      recalc: "Recalculate all the server's points",
       week: 'Week',
       match: 'Match',
+      score: 'Result to apply',
+      restore: 'Undo the cancellation (back to the Leaguepedia result)',
     },
   },
 };

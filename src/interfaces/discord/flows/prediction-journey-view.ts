@@ -13,7 +13,15 @@ import { sameChoice, type PredictionChoice } from '../../../domain/prediction/pr
 import { encodePrediction } from '../components/custom-id.js';
 import { BRAND_COLOR, type MessageView } from '../components/payload.js';
 import { messages, type Messages } from '../i18n/index.js';
-import { choiceLabel, fullDateTime, matchup, relative, truncate } from '../embeds/formatting.js';
+import {
+  choiceLabel,
+  fullDateTime,
+  judgementLabel,
+  matchup,
+  outcomeLabel,
+  relative,
+  truncate,
+} from '../embeds/formatting.js';
 import { voteLine } from '../embeds/vote-lines.js';
 
 const BUTTONS_PER_ROW = 3;
@@ -72,8 +80,14 @@ export function renderJourneyStep(
       },
     )
     .setFooter({ text: t.common.dataCredit });
-  if (item.distribution)
+  const result = outcomeLabel(item.outcome, item.match, t);
+  if (result) embed.addFields({ name: t.results.result, value: result, inline: true });
+  if (item.judgement && item.judgement.status !== 'pending') {
+    embed.addFields({ name: t.results.yourPoints, value: judgementLabel(item.judgement, t), inline: true });
+  }
+  if (item.distribution && item.distribution.total > 0) {
     embed.addFields({ name: t.journey.votes, value: voteLine(item.match, item.distribution, t) });
+  }
 
   return {
     embeds: [embed],
@@ -90,8 +104,10 @@ export function renderJourneySummary(
   const t = messages(locale);
   const lines = journey.items.map((item) => {
     const pick = item.current ? choiceLabel(item.current, item.match, t) : '—';
-    const icon = item.state === 'open' ? (item.current ? '✅' : '▫️') : '🔒';
-    return `${icon} ${matchup(item.match, t, useEmojis)} → **${pick}**`;
+    const icon = summaryIcon(item);
+    const scored =
+      item.judgement && item.judgement.status !== 'pending' ? ` (${judgementLabel(item.judgement, t)})` : '';
+    return `${icon} ${matchup(item.match, t, useEmojis)} → **${pick}**${scored}`;
   });
   const embed = new EmbedBuilder()
     .setColor(BRAND_COLOR)
@@ -175,4 +191,12 @@ function navigationRow(journey: PredictionJourney, index: number, t: Messages): 
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(index >= journey.items.length - 1),
   );
+}
+
+/** Open: picked or not. Played: right or wrong pick. Otherwise locked or cancelled. */
+function summaryIcon(item: JourneyItem): string {
+  if (item.state === 'open') return item.current ? '✅' : '▫️';
+  if (item.state === 'cancelled') return '🚫';
+  if (item.judgement?.status === 'scored') return item.judgement.points > 0 ? '✅' : '❌';
+  return '🔒';
 }

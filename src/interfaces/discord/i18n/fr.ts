@@ -53,6 +53,15 @@ export const fr = {
     title: (competition: string, week: string) => `🔒 Votes fermés · ${competition} · ${week}`,
     description: 'Voici ce que le serveur a pronostiqué :',
   },
+  results: {
+    winner: (team: string) => `victoire ${team}`,
+    points: (points: number) => (points > 1 ? `+${points} pts` : `+${points} pt`),
+    cancelled: 'match annulé',
+    void: 'annulé',
+    result: 'Résultat',
+    yourPoints: 'Tes points',
+    pending: 'en attente du résultat',
+  },
   matches: {
     title: (competition: string, week: string) => `${competition} · ${week}`,
     empty: 'Aucune semaine trouvée pour cette période.',
@@ -62,6 +71,7 @@ export const fr = {
       locked: '🔒 votes fermés',
       'awaiting-opponents': '⏳ équipes à déterminer',
       closed: '🏁 terminé',
+      cancelled: '🚫 match annulé',
     },
   },
   admin: {
@@ -69,12 +79,24 @@ export const fr = {
       `🔓 Votes rouverts pour ${count} match${count > 1 ? 's' : ''} (${target}), jusqu’au début de chaque match.`,
     closed: (count: number, target: string) =>
       `🔒 Votes fermés pour ${count} match${count > 1 ? 's' : ''} (${target}).`,
+    resultSaved: (match: string, result: string, rescored: number) =>
+      `✅ Résultat de ${match} fixé à ${result}. ${rescored} prono(s) recalculé(s).`,
+    resultRestored: (match: string, rescored: number) =>
+      `↩️ ${match} reprend le résultat de Leaguepedia. ${rescored} prono(s) recalculé(s).`,
+    cancelled: (match: string, rescored: number) =>
+      `🚫 ${match} est annulé : ses pronos sont ignorés. ${rescored} prono(s) mis à jour.`,
+    recalculated: (changed: number) => `🔄 Points recalculés : ${changed} prono(s) modifié(s).`,
+    providerResult: 'Résultat Leaguepedia (annuler la correction)',
+    invalidScore: 'Choisis un score parmi les suggestions.',
     missingTarget: 'Choisis une semaine ou un match.',
     bothTargets: 'Choisis soit une semaine, soit un match, pas les deux.',
     errors: {
       'target-not-found': 'Semaine ou match introuvable. Utilise les suggestions de la commande.',
       'no-open-match': 'Aucun match à venir dans cette sélection.',
       'guild-not-active': "Le bot n'est pas actif sur ce serveur.",
+      'match-not-found': 'Match introuvable. Utilise les suggestions de la commande.',
+      'match-not-started': 'Ce match n’a pas encore commencé : impossible de fixer son résultat.',
+      'invalid-result': 'Ce score n’est pas possible pour ce format de match.',
     },
   },
   journey: {
@@ -91,6 +113,7 @@ export const fr = {
       locked: '🔒 Votes fermés pour ce match.',
       'awaiting-opponents': '⏳ Les équipes ne sont pas encore connues.',
       closed: '🏁 Ce match est terminé.',
+      cancelled: '🚫 Ce match a été annulé, ses pronos ne comptent pas.',
     },
     previous: 'Précédent',
     next: 'Suivant',
@@ -103,6 +126,7 @@ export const fr = {
       locked: '🔒 Trop tard, les votes sont fermés pour ce match.',
       'opponents-unknown': '⏳ Les équipes ne sont pas encore connues.',
       'match-not-open': '🏁 Ce match n’est plus ouvert aux pronos.',
+      'match-cancelled': '🚫 Ce match a été annulé.',
       'invalid-choice': 'Ce choix n’est pas valide pour ce match.',
       'match-not-found': 'Ce match est introuvable.',
       'guild-not-active': "Le bot n'est pas actif sur ce serveur.",
@@ -211,8 +235,13 @@ export const fr = {
       description: 'Commandes d’administration de PronoBot',
       open: 'Rouvrir les votes d’une semaine ou d’un match',
       close: 'Fermer les votes d’une semaine ou d’un match',
+      result: 'Forcer ou corriger le résultat d’un match',
+      cancel: 'Annuler un match (ses pronos sont ignorés)',
+      recalc: 'Recalculer tous les points du serveur',
       week: 'Semaine concernée',
       match: 'Match concerné',
+      score: 'Résultat à appliquer',
+      restore: 'Annuler l’annulation (revenir au résultat Leaguepedia)',
     },
   },
 };

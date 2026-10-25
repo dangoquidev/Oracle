@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { DecideMatchResult, RecalculatePoints } from './application/use-cases/admin-results.js';
 import { CheckGuildAccess } from './application/use-cases/check-guild-access.js';
 import { ConfigureGuild } from './application/use-cases/configure-guild.js';
 import { GetConfigurationDraft } from './application/use-cases/get-configuration-draft.js';
@@ -9,10 +10,12 @@ import { LeaveGuild } from './application/use-cases/leave-guild.js';
 import { ListLockTargets } from './application/use-cases/list-lock-targets.js';
 import { ListWeekMatches } from './application/use-cases/list-week-matches.js';
 import { LockCalculatorFactory } from './application/use-cases/lock-calculator.js';
+import { PollLiveResults } from './application/use-cases/poll-live-results.js';
 import { PublishDueWeeks } from './application/use-cases/publish-due-weeks.js';
 import { ReconcileGuilds } from './application/use-cases/reconcile-guilds.js';
 import { RefreshAnnouncements } from './application/use-cases/refresh-announcements.js';
 import { RegisterGuild } from './application/use-cases/register-guild.js';
+import { ScorePredictions } from './application/use-cases/score-predictions.js';
 import { SendLockNotifications } from './application/use-cases/send-lock-notifications.js';
 import { SetLockOverride } from './application/use-cases/set-lock-override.js';
 import { SubmitPrediction } from './application/use-cases/submit-prediction.js';
@@ -33,6 +36,7 @@ import { DrizzleGuildRepository } from './infrastructure/repositories/drizzle-gu
 import { DrizzleLockOverrideRepository } from './infrastructure/repositories/drizzle-lock-override-repository.js';
 import { DrizzlePredictionRepository } from './infrastructure/repositories/drizzle-prediction-repository.js';
 import { DrizzlePublicationRepository } from './infrastructure/repositories/drizzle-publication-repository.js';
+import { DrizzleResultOverrideRepository } from './infrastructure/repositories/drizzle-result-override-repository.js';
 import { JobScheduler, type RecurringTask } from './infrastructure/scheduler/job-scheduler.js';
 import { DiscordEmojiStore } from './interfaces/discord/adapters/discord-emoji-store.js';
 import { DiscordGuildMessenger } from './interfaces/discord/adapters/discord-guild-messenger.js';
@@ -61,6 +65,7 @@ async function main(): Promise<void> {
   const publications = new DrizzlePublicationRepository(database.db);
   const lockOverrides = new DrizzleLockOverrideRepository(database.db);
   const dispatchLog = new DrizzleDispatchLog(database.db);
+  const resultOverrides = new DrizzleResultOverrideRepository(database.db);
   const locks = new LockCalculatorFactory(calendar, lockOverrides);
 
   // ── External services ─────────────────────────────────────────────────────
@@ -84,6 +89,15 @@ async function main(): Promise<void> {
   const handleResourceDeleted = new HandleResourceDeleted(guilds, messenger, logger);
   const syncSchedule = new SyncSchedule(leaguepedia, calendar, COMPETITIONS, clock, logger);
   const syncTeamEmojis = new SyncTeamEmojis(calendar, emojiStore, clock, logger);
+  const scorePredictions = new ScorePredictions(
+    calendar,
+    predictions,
+    resultOverrides,
+    COMPETITIONS,
+    clock,
+    logger,
+  );
+  const pollLiveResults = new PollLiveResults(calendar, syncSchedule, scorePredictions, clock, logger);
   const publishDueWeeks = new PublishDueWeeks(guilds, calendar, publications, messenger, clock, logger);
   const refreshAnnouncements = new RefreshAnnouncements(
     guilds,
@@ -99,6 +113,7 @@ async function main(): Promise<void> {
     calendar,
     predictions,
     dispatchLog,
+    resultOverrides,
     locks,
     messenger,
     clock,
@@ -119,10 +134,11 @@ async function main(): Promise<void> {
         publications,
         calendar,
         predictions,
+        resultOverrides,
         locks,
         clock,
       ),
-      submitPrediction: new SubmitPrediction(guilds, calendar, predictions, locks),
+      submitPrediction: new SubmitPrediction(guilds, calendar, predictions, resultOverrides, locks),
       registerGuild,
       leaveGuild,
       handleResourceDeleted,
@@ -133,9 +149,19 @@ async function main(): Promise<void> {
         leaveGuild,
         handleResourceDeleted,
       ),
-      listWeekMatches: new ListWeekMatches(guilds, calendar, predictions, locks, COMPETITIONS, clock),
+      listWeekMatches: new ListWeekMatches(
+        guilds,
+        calendar,
+        predictions,
+        resultOverrides,
+        locks,
+        COMPETITIONS,
+        clock,
+      ),
       listLockTargets: new ListLockTargets(guilds, calendar, clock),
       setLockOverride: new SetLockOverride(guilds, calendar, lockOverrides, clock),
+      decideMatchResult: new DecideMatchResult(guilds, calendar, resultOverrides, scorePredictions, clock),
+      recalculatePoints: new RecalculatePoints(guilds, scorePredictions),
     },
   };
 
@@ -150,11 +176,14 @@ async function main(): Promise<void> {
           await syncSchedule.execute();
         } finally {
           // Competitions that did sync still deserve fresh logos and announcements.
+          await scorePredictions.execute();
           if (env.EMOJI_GUILD_IDS.length > 0) await syncTeamEmojis.execute();
           await refreshAnnouncements.executeForAll();
         }
       },
     },
+    // Only reaches Leaguepedia while matches are awaiting results.
+    { name: 'results-poll', cron: '*/5 * * * *', run: () => pollLiveResults.execute() },
     {
       name: 'guild-tick',
       cron: '* * * * *',
