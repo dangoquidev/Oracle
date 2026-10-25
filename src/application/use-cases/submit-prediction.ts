@@ -8,6 +8,7 @@ import { err, ok, type Result } from '../../domain/shared/result.js';
 import type { CalendarRepository } from '../ports/calendar-repository.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
 import type { PredictionRepository } from '../ports/prediction-repository.js';
+import type { ResultOverrideRepository } from '../ports/result-override-repository.js';
 import type { LockCalculatorFactory } from './lock-calculator.js';
 
 export interface SubmitPredictionCommand {
@@ -24,6 +25,7 @@ export type SubmitPredictionError =
   | 'match-not-found'
   | 'opponents-unknown'
   | 'match-not-open'
+  | 'match-cancelled'
   | 'invalid-choice'
   | 'locked';
 
@@ -33,6 +35,7 @@ export class SubmitPrediction {
     private readonly guilds: GuildRepository,
     private readonly calendar: CalendarRepository,
     private readonly predictions: PredictionRepository,
+    private readonly resultOverrides: ResultOverrideRepository,
     private readonly locks: LockCalculatorFactory,
   ) {}
 
@@ -44,6 +47,9 @@ export class SubmitPrediction {
     if (!match) return err('match-not-found');
     if (!hasKnownOpponents(match)) return err('opponents-unknown');
     if (match.status !== 'scheduled') return err('match-not-open');
+    const override = (await this.resultOverrides.findForMatches(guild.id, [match.id])).get(match.id);
+    if (override?.kind === 'cancelled') return err('match-cancelled');
+    if (override?.kind === 'result') return err('match-not-open');
     if (!isChoiceValidFor(command.choice, match.bestOf)) return err('invalid-choice');
 
     const lockAt = await this.locks.forGuild(guild.id, guild.settings).lockAtOf(match);

@@ -6,6 +6,7 @@ import {
   gte,
   inArray,
   isNotNull,
+  lte,
   isNull,
   lt,
   max,
@@ -116,6 +117,19 @@ export class DrizzleCalendarRepository implements CalendarRepository {
           .returning({ id: teams.id, name: teams.providerName });
         for (const row of rows) teamIds.set(row.name, row.id);
       }
+      // Matches may reference cached teams left out of a partial snapshot.
+      const missingTeams = [
+        ...new Set(
+          snapshot.matches.flatMap((match) => [match.team1, match.team2]).filter((name) => name !== null),
+        ),
+      ].filter((name) => !teamIds.has(name));
+      if (missingTeams.length > 0) {
+        const rows = await tx
+          .select({ id: teams.id, name: teams.providerName })
+          .from(teams)
+          .where(inArray(teams.providerName, missingTeams));
+        for (const row of rows) teamIds.set(row.name, row.id);
+      }
 
       for (const batch of chunk(snapshot.matches, INSERT_BATCH)) {
         await tx
@@ -206,6 +220,43 @@ export class DrizzleCalendarRepository implements CalendarRepository {
   async findMatch(matchId: MatchId): Promise<Match | null> {
     const [row] = await this.db.select().from(matches).where(eq(matches.id, matchId));
     return row ? toMatch(row) : null;
+  }
+
+  async findMatches(matchIds: readonly MatchId[]): Promise<Match[]> {
+    if (matchIds.length === 0) return [];
+    const rows = await this.db
+      .select()
+      .from(matches)
+      .where(inArray(matches.id, [...matchIds]));
+    return rows.map(toMatch);
+  }
+
+  async findMatchesStartedBetween(from: Date, to: Date): Promise<Match[]> {
+    const rows = await this.db
+      .select()
+      .from(matches)
+      .where(and(gte(matches.scheduledAt, from), lte(matches.scheduledAt, to)))
+      .orderBy(asc(matches.scheduledAt));
+    return rows.map(toMatch);
+  }
+
+  async findCompetitionsAwaitingResults(from: Date, to: Date): Promise<CompetitionId[]> {
+    const rows = await this.db
+      .selectDistinct({ competitionId: matches.competitionId })
+      .from(matches)
+      .where(
+        and(eq(matches.status, 'scheduled'), gte(matches.scheduledAt, from), lte(matches.scheduledAt, to)),
+      );
+    return rows.map((row) => row.competitionId);
+  }
+
+  async findKnownTeamNames(names: readonly string[]): Promise<Set<string>> {
+    if (names.length === 0) return new Set();
+    const rows = await this.db
+      .select({ name: teams.providerName })
+      .from(teams)
+      .where(inArray(teams.providerName, [...names]));
+    return new Set(rows.map((row) => row.name));
   }
 
   async findWeekMatches(weekId: WeekId): Promise<Match[]> {
@@ -315,6 +366,7 @@ function toMatchView(row: MatchRow, team1: TeamRow | null, team2: TeamRow | null
     scheduledAt: row.scheduledAt,
     bestOf: row.bestOf as BestOf,
     status: row.status,
+    result: toResult(row),
     team1: toTeamView(team1),
     team2: toTeamView(team2),
   };

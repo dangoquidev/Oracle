@@ -8,6 +8,7 @@ import {
   InMemoryLockOverrideRepository,
   InMemoryPredictionRepository,
   InMemoryPublicationRepository,
+  InMemoryResultOverrideRepository,
 } from '../../test-support/fakes.js';
 import { GetPredictionJourney } from './get-prediction-journey.js';
 import { LockCalculatorFactory } from './lock-calculator.js';
@@ -36,6 +37,7 @@ describe('predictions', () => {
   let clock: FixedClock;
   let overrides: InMemoryLockOverrideRepository;
   let locks: LockCalculatorFactory;
+  let resultOverrides: InMemoryResultOverrideRepository;
 
   beforeEach(async () => {
     guilds = new InMemoryGuildRepository().add(activeGuild('g1'));
@@ -50,6 +52,7 @@ describe('predictions', () => {
     clock = new FixedClock(new Date('2026-08-01T10:00:00Z'));
     overrides = new InMemoryLockOverrideRepository();
     locks = new LockCalculatorFactory(calendar, overrides);
+    resultOverrides = new InMemoryResultOverrideRepository();
   });
 
   describe('SubmitPrediction', () => {
@@ -58,7 +61,7 @@ describe('predictions', () => {
       choice: PredictionChoice,
       submittedAt = new Date('2026-08-01T13:59:59Z'),
     ) =>
-      new SubmitPrediction(guilds, calendar, predictions, locks).execute({
+      new SubmitPrediction(guilds, calendar, predictions, resultOverrides, locks).execute({
         guildId: 'g1',
         userId: 'u1',
         matchId,
@@ -75,6 +78,7 @@ describe('predictions', () => {
           matchId: 1,
           choice: g2Wins,
           submittedAt: new Date('2026-08-01T13:59:59Z'),
+          outcome: { status: 'pending' },
         },
       ]);
     });
@@ -122,6 +126,16 @@ describe('predictions', () => {
       });
     });
 
+    it('rejects matches an admin cancelled or already decided', async () => {
+      await resultOverrides.set('g1', 1, { kind: 'cancelled' });
+      await resultOverrides.set('g1', 2, {
+        kind: 'result',
+        result: { winner: 1, score: { team1: 2, team2: 0 } },
+      });
+      expect(await submit(1, g2Wins)).toEqual({ ok: false, error: 'match-cancelled' });
+      expect(await submit(2, twoOne)).toEqual({ ok: false, error: 'match-not-open' });
+    });
+
     it('rejects predictions on inactive servers', async () => {
       guilds.add({ ...activeGuild('g1'), status: 'paused' });
       expect(await submit(1, g2Wins)).toEqual({ ok: false, error: 'guild-not-active' });
@@ -130,11 +144,15 @@ describe('predictions', () => {
 
   describe('GetPredictionJourney', () => {
     const journey = (guildId = 'g1', publicationId = 1) =>
-      new GetPredictionJourney(guilds, publications, calendar, predictions, locks, clock).execute(
-        guildId,
-        'u1',
-        publicationId,
-      );
+      new GetPredictionJourney(
+        guilds,
+        publications,
+        calendar,
+        predictions,
+        resultOverrides,
+        locks,
+        clock,
+      ).execute(guildId, 'u1', publicationId);
 
     it('lists every match with its state, options and current choice', async () => {
       await predictions.save({
@@ -198,6 +216,27 @@ describe('predictions', () => {
       expect(result.value.items[0]?.state).toBe('locked');
       expect(result.value.items[0]?.distribution).toMatchObject({ total: 2, team1Percent: 100 });
       expect(result.value.items[2]?.distribution).toBeNull();
+    });
+
+    it('exposes the outcome and how the user pick was judged', async () => {
+      await predictions.save({
+        guildId: 'g1',
+        userId: 'u1',
+        matchId: 4,
+        choice: g2Wins,
+        submittedAt: new Date(),
+      });
+      await predictions.saveOutcomes(
+        [{ guildId: 'g1', userId: 'u1', matchId: 4, outcome: { status: 'scored', points: 1 } }],
+        new Date(),
+      );
+      const result = await journey();
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.items[3]).toMatchObject({
+        state: 'closed',
+        outcome: { kind: 'decided', result: { winner: 1, score: null } },
+        judgement: { status: 'scored', points: 1 },
+      });
     });
 
     it('keeps votes hidden while a match is open', async () => {

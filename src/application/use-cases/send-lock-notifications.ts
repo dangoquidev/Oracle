@@ -13,6 +13,7 @@ import type { GuildRepository } from '../ports/guild-repository.js';
 import type { Logger } from '../ports/logger.js';
 import type { PredictionRepository } from '../ports/prediction-repository.js';
 import type { PublicationId, PublicationRepository } from '../ports/publication-repository.js';
+import type { ResultOverrideRepository } from '../ports/result-override-repository.js';
 import { loadDistributions } from '../read-models/vote-distributions.js';
 import type { MatchView, WeekView } from '../read-models/views.js';
 import type { LockCalculatorFactory } from './lock-calculator.js';
@@ -27,6 +28,7 @@ export class SendLockNotifications {
     private readonly calendar: CalendarRepository,
     private readonly predictions: PredictionRepository,
     private readonly dispatchLog: DispatchLog,
+    private readonly resultOverrides: ResultOverrideRepository,
     private readonly locks: LockCalculatorFactory,
     private readonly messenger: GuildMessenger,
     private readonly clock: Clock,
@@ -57,6 +59,10 @@ export class SendLockNotifications {
     if (weeks.length === 0) return;
 
     const locks = this.locks.forGuild(guild.id, settings);
+    const overrides = await this.resultOverrides.findForMatches(
+      guild.id,
+      weeks.flatMap((week) => week.matches.map((match) => match.id)),
+    );
     const notifiable = [];
     for (const week of weeks) {
       for (const match of week.matches) {
@@ -64,7 +70,11 @@ export class SendLockNotifications {
           id: match.id,
           weekId: week.week.id,
           lockAt: await locks.lockAtOf(match),
-          predictable: match.status === 'scheduled' && match.team1 !== null && match.team2 !== null,
+          predictable:
+            match.status === 'scheduled' &&
+            match.team1 !== null &&
+            match.team2 !== null &&
+            !overrides.has(match.id),
         });
       }
     }

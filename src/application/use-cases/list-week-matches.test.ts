@@ -8,6 +8,7 @@ import {
   InMemoryGuildRepository,
   InMemoryLockOverrideRepository,
   InMemoryPredictionRepository,
+  InMemoryResultOverrideRepository,
 } from '../../test-support/fakes.js';
 import { ListWeekMatches } from './list-week-matches.js';
 import { LockCalculatorFactory } from './lock-calculator.js';
@@ -22,6 +23,7 @@ describe('ListWeekMatches', () => {
   let calendar: InMemoryCalendarRepository;
   let predictions: InMemoryPredictionRepository;
   let clock: FixedClock;
+  let resultOverrides: InMemoryResultOverrideRepository;
   let list: ListWeekMatches;
 
   const week1 = week({
@@ -55,7 +57,8 @@ describe('ListWeekMatches', () => {
     predictions = new InMemoryPredictionRepository();
     clock = new FixedClock(new Date('2026-08-01T15:00:00Z'));
     const locks = new LockCalculatorFactory(calendar, new InMemoryLockOverrideRepository());
-    list = new ListWeekMatches(guilds, calendar, predictions, locks, competitions, clock);
+    resultOverrides = new InMemoryResultOverrideRepository();
+    list = new ListWeekMatches(guilds, calendar, predictions, resultOverrides, locks, competitions, clock);
   });
 
   it('shows the current week with each match state, revealing votes only once locked', async () => {
@@ -85,6 +88,16 @@ describe('ListWeekMatches', () => {
     ).toEqual([
       [2, 'locked', 100],
       [3, 'open', null],
+    ]);
+  });
+
+  it('shows admin corrections and cancellations', async () => {
+    await resultOverrides.set('g1', 3, { kind: 'cancelled' });
+    await resultOverrides.set('g1', 2, { kind: 'result', result: { winner: 2, score: null } });
+    const result = await list.execute('g1', 0, 'lec');
+    expect(result.ok && result.value.weeks[0]?.items.map((item) => [item.state, item.outcome.kind])).toEqual([
+      ['closed', 'decided'],
+      ['cancelled', 'void'],
     ]);
   });
 

@@ -46,13 +46,23 @@ export interface TeamMissingEmoji {
 }
 
 export interface CalendarRepository {
-  /** Upserts the whole snapshot atomically; provider keys identify existing rows. */
+  /**
+   * Upserts the whole snapshot atomically; provider keys identify existing rows.
+   * Matches may reference cached teams that are not part of the snapshot.
+   */
   applySnapshot(snapshot: CalendarSnapshot): Promise<void>;
   /** Weeks of the given competitions with matches inside [from, to). */
   findWeeksBetween(competitionIds: readonly CompetitionId[], from: Date, to: Date): Promise<PredictionWeek[]>;
   findWeekViews(weekIds: readonly WeekId[]): Promise<WeekView[]>;
   findMatch(matchId: MatchId): Promise<Match | null>;
+  findMatches(matchIds: readonly MatchId[]): Promise<Match[]>;
   findWeekMatches(weekId: WeekId): Promise<Match[]>;
+  /** Matches whose scheduled start falls inside [from, to]. */
+  findMatchesStartedBetween(from: Date, to: Date): Promise<Match[]>;
+  /** Competitions with a match started in [from, to] whose result is still unknown. */
+  findCompetitionsAwaitingResults(from: Date, to: Date): Promise<CompetitionId[]>;
+  /** Which of these provider team names are already cached. */
+  findKnownTeamNames(names: readonly string[]): Promise<Set<string>>;
   /** Teams of upcoming matches that have a logo but no emoji yet. */
   findTeamsMissingEmoji(upcomingFrom: Date, limit: number): Promise<TeamMissingEmoji[]>;
   setTeamEmoji(teamId: TeamId, emojiId: string): Promise<void>;

@@ -2,6 +2,7 @@ import type { Competition } from '../../domain/competition/competition.js';
 import { accessOf } from '../../domain/guild/guild.js';
 import type { Locale } from '../../domain/guild/guild-settings.js';
 import type { VoteDistribution } from '../../domain/prediction/vote-distribution.js';
+import type { MatchOutcome } from '../../domain/scoring/match-outcome.js';
 import { pickWeek, type WeekOffset } from '../../domain/schedule/week-navigation.js';
 import type { CompetitionId, GuildId } from '../../domain/shared/ids.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
@@ -9,7 +10,8 @@ import type { CalendarRepository } from '../ports/calendar-repository.js';
 import type { Clock } from '../ports/clock.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
 import type { PredictionRepository } from '../ports/prediction-repository.js';
-import { areVotesVisible, predictionStateOf, type MatchPredictionState } from '../read-models/match-state.js';
+import type { ResultOverrideRepository } from '../ports/result-override-repository.js';
+import { areVotesVisible, standingOf, type MatchPredictionState } from '../read-models/match-state.js';
 import { loadDistributions } from '../read-models/vote-distributions.js';
 import type { MatchView, WeekView } from '../read-models/views.js';
 import type { LockCalculatorFactory } from './lock-calculator.js';
@@ -20,6 +22,7 @@ export interface WeekMatchesItem {
   readonly match: MatchView;
   readonly lockAt: Date;
   readonly state: MatchPredictionState;
+  readonly outcome: MatchOutcome;
   readonly distribution: VoteDistribution | null;
 }
 
@@ -42,6 +45,7 @@ export class ListWeekMatches {
     private readonly guilds: GuildRepository,
     private readonly calendar: CalendarRepository,
     private readonly predictions: PredictionRepository,
+    private readonly resultOverrides: ResultOverrideRepository,
     private readonly locks: LockCalculatorFactory,
     private readonly competitions: readonly Competition[],
     private readonly clock: Clock,
@@ -76,10 +80,14 @@ export class ListWeekMatches {
       const [view] = await this.calendar.findWeekViews([picked.id]);
       if (!view) continue;
 
+      const overrides = await this.resultOverrides.findForMatches(
+        guildId,
+        view.matches.map((match) => match.id),
+      );
       const rows: Omit<WeekMatchesItem, 'distribution'>[] = [];
       for (const match of view.matches) {
         const lockAt = await locks.lockAtOf(match);
-        rows.push({ match, lockAt, state: predictionStateOf(match, lockAt, now) });
+        rows.push({ match, lockAt, ...standingOf(match, lockAt, now, overrides.get(match.id) ?? null) });
       }
       const distributions = await loadDistributions(
         this.predictions,

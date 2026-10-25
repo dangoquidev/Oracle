@@ -8,6 +8,7 @@ import {
   InMemoryLockOverrideRepository,
   InMemoryPredictionRepository,
   InMemoryPublicationRepository,
+  InMemoryResultOverrideRepository,
   RecordingMessenger,
   SilentLogger,
 } from '../../test-support/fakes.js';
@@ -29,6 +30,7 @@ describe('SendLockNotifications', () => {
   let clock: FixedClock;
   let logger: SilentLogger;
   let notify: SendLockNotifications;
+  let resultOverrides: InMemoryResultOverrideRepository;
 
   beforeEach(async () => {
     guilds = new InMemoryGuildRepository().add(activeGuild('g1'));
@@ -44,12 +46,14 @@ describe('SendLockNotifications', () => {
     messenger = new RecordingMessenger();
     clock = new FixedClock(new Date('2026-08-01T13:05:00Z'));
     logger = new SilentLogger();
+    resultOverrides = new InMemoryResultOverrideRepository();
     notify = new SendLockNotifications(
       guilds,
       publications,
       calendar,
       predictions,
       dispatchLog,
+      resultOverrides,
       new LockCalculatorFactory(calendar, new InMemoryLockOverrideRepository()),
       messenger,
       clock,
@@ -72,6 +76,12 @@ describe('SendLockNotifications', () => {
       lockAt: new Date('2026-08-01T14:00:00Z'),
     });
     expect(messenger.reminders[0]?.matches.map((m) => m.id)).toEqual([1, 2]);
+  });
+
+  it('leaves cancelled matches out of reminders', async () => {
+    await resultOverrides.set('g1', 2, { kind: 'cancelled' });
+    await notify.executeForAll();
+    expect(messenger.reminders[0]?.matches.map((m) => m.id)).toEqual([1]);
   });
 
   it('skips reminders when the server disabled them', async () => {

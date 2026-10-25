@@ -9,6 +9,13 @@ import { buildCalendarSnapshot } from './build-calendar-snapshot.js';
 const LOOKBACK_DAYS = 30;
 const DAY_MS = 86_400_000;
 
+export interface SyncOptions {
+  /** Restrict the sync to these competitions (all by default). */
+  readonly competitionIds?: readonly CompetitionId[];
+  /** Re-fetch details of teams already cached (names, logos). Off for frequent result polling. */
+  readonly refreshKnownTeams?: boolean;
+}
+
 export interface CompetitionSyncReport {
   readonly competitionId: CompetitionId;
   readonly tournaments: number;
@@ -29,12 +36,16 @@ export class SyncSchedule {
     private readonly logger: Logger,
   ) {}
 
-  async execute(): Promise<CompetitionSyncReport[]> {
+  async execute(options: SyncOptions = {}): Promise<CompetitionSyncReport[]> {
     const reports: CompetitionSyncReport[] = [];
     const failures: unknown[] = [];
-    for (const competition of this.competitions) {
+    const selected = options.competitionIds;
+    const competitions = selected
+      ? this.competitions.filter((competition) => selected.includes(competition.id))
+      : this.competitions;
+    for (const competition of competitions) {
       try {
-        reports.push(await this.syncCompetition(competition));
+        reports.push(await this.syncCompetition(competition, options.refreshKnownTeams ?? true));
       } catch (error) {
         this.logger.error({ competitionId: competition.id, err: error }, 'Schedule sync failed');
         failures.push(error);
@@ -45,7 +56,10 @@ export class SyncSchedule {
     return reports;
   }
 
-  private async syncCompetition(competition: Competition): Promise<CompetitionSyncReport> {
+  private async syncCompetition(
+    competition: Competition,
+    refreshKnownTeams: boolean,
+  ): Promise<CompetitionSyncReport> {
     const endingAfter = new Date(this.clock.now().getTime() - LOOKBACK_DAYS * DAY_MS);
     const tournaments = await this.provider.fetchTournaments(competition.source, endingAfter);
     if (tournaments.length === 0) return { competitionId: competition.id, tournaments: 0, matches: 0 };
@@ -54,13 +68,16 @@ export class SyncSchedule {
     const teamNames = [...new Set(matches.flatMap((match) => [match.team1, match.team2]))].filter(
       (name): name is string => name !== null,
     );
-    const teams = teamNames.length > 0 ? await this.provider.fetchTeams(teamNames) : [];
+    const known = refreshKnownTeams ? new Set<string>() : await this.calendar.findKnownTeamNames(teamNames);
+    const toFetch = teamNames.filter((name) => !known.has(name));
+    const teams = toFetch.length > 0 ? await this.provider.fetchTeams(toFetch) : [];
 
     const { snapshot, skippedMatchRefs } = buildCalendarSnapshot({
       competition,
       tournaments,
       matches,
       teams,
+      knownTeamNames: known,
     });
     if (skippedMatchRefs.length > 0) {
       this.logger.warn({ competitionId: competition.id, skippedMatchRefs }, 'Skipped unsupported matches');

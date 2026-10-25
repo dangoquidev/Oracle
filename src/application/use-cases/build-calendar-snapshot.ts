@@ -10,6 +10,8 @@ export interface SnapshotInput {
   readonly tournaments: readonly ProviderTournament[];
   readonly matches: readonly ProviderMatch[];
   readonly teams: readonly ProviderTeam[];
+  /** Teams already cached and not re-fetched: left untouched instead of reset to placeholders. */
+  readonly knownTeamNames?: ReadonlySet<string>;
 }
 
 export interface BuiltSnapshot {
@@ -24,6 +26,7 @@ export function buildCalendarSnapshot({
   tournaments,
   matches,
   teams,
+  knownTeamNames = new Set(),
 }: SnapshotInput): BuiltSnapshot {
   const tournamentRefs = new Set(tournaments.map((tournament) => tournament.ref));
   const skippedMatchRefs: string[] = [];
@@ -53,9 +56,9 @@ export function buildCalendarSnapshot({
 
   const teamsByName = new Map(teams.map((team) => [team.name, team]));
   const teamNames = new Set(supported.flatMap(({ match }) => [match.team1, match.team2]).filter(isPresent));
-  const snapshotTeams = [...teamNames].map(
-    (name) => teamsByName.get(name) ?? { name, shortName: name, logoUrl: null },
-  );
+  const snapshotTeams = [...teamNames]
+    .filter((name) => teamsByName.has(name) || !knownTeamNames.has(name))
+    .map((name) => teamsByName.get(name) ?? { name, shortName: name, logoUrl: null });
 
   return {
     skippedMatchRefs,

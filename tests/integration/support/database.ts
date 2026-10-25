@@ -25,7 +25,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     handle,
     reset: async () => {
       await handle.db.execute(
-        sql`truncate dispatch_log, lock_overrides, publication_weeks, publications, predictions, guild_competitions, guilds, matches, weeks, teams, tournaments, seasons restart identity cascade`,
+        sql`truncate result_overrides, dispatch_log, lock_overrides, publication_weeks, publications, predictions, guild_competitions, guilds, matches, weeks, teams, tournaments, seasons restart identity cascade`,
       );
     },
     stop: async () => {

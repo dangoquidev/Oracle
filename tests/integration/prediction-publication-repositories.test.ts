@@ -77,6 +77,7 @@ describe('prediction and publication repositories', () => {
           matchId: bo3,
           choice: { kind: 'score', score: { team1: 0, team2: 2 } },
           submittedAt: new Date('2026-07-21T10:00:00Z'),
+          outcome: { status: 'pending' },
         },
         {
           guildId: 'g1',
@@ -84,6 +85,7 @@ describe('prediction and publication repositories', () => {
           matchId: bo1,
           choice: { kind: 'winner', winner: 2 },
           submittedAt: new Date('2026-07-20T10:00:00Z'),
+          outcome: { status: 'pending' },
         },
       ]);
     });

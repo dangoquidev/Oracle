@@ -178,6 +178,27 @@ describe('SyncSchedule', () => {
     );
   });
 
+  it('can sync selected competitions without re-fetching cached teams', async () => {
+    provider.tournaments.set('LEC', [tournament('LEC/Summer', 'Summer')]);
+    provider.tournaments.set('Worlds', [tournament('Worlds/Main', null)]);
+    provider.matches = [providerMatch()];
+    calendar.knownTeamNames.add('G2 Esports');
+
+    await sync([lec, worlds]).execute({ competitionIds: ['lec'], refreshKnownTeams: false });
+
+    expect(provider.teamRequests).toEqual([['Fnatic']]);
+    expect(calendar.snapshots.map((s) => s.competitionId)).toEqual(['lec']);
+    expect(calendar.snapshots[0]?.teams.map((t) => t.name)).toEqual(['Fnatic']);
+  });
+
+  it('skips the team lookup when every team is cached', async () => {
+    provider.tournaments.set('LEC', [tournament('LEC/Summer', 'Summer')]);
+    provider.matches = [providerMatch()];
+    calendar.knownTeamNames.add('G2 Esports').add('Fnatic');
+    await sync([lec]).execute({ refreshKnownTeams: false });
+    expect(provider.teamRequests).toEqual([]);
+  });
+
   it('syncs the other competitions when one fails, then reports the failure', async () => {
     provider.failingLeagues.add('LEC');
     provider.tournaments.set('Worlds', [tournament('Worlds/Main', null)]);

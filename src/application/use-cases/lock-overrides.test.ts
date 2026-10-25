@@ -28,7 +28,7 @@ describe('lock overrides', () => {
   beforeEach(() => {
     guilds = new InMemoryGuildRepository().add(activeGuild('g1'));
     calendar = new InMemoryCalendarRepository();
-    const week1 = week({ id: 1, name: 'Week 1' });
+    const week1 = week({ id: 1, name: 'Week 1', startsAt: played.scheduledAt, endsAt: later.scheduledAt });
     calendar.weeks.push(week1);
     calendar.matches.push(upcoming, later, played);
     calendar.views.push(weekView(week1, [played, upcoming, later]));
@@ -90,6 +90,11 @@ describe('lock overrides', () => {
       expect(targets.weeks.map((t) => [t.week.name, t.matches.map((m) => m.id)])).toEqual([
         ['Week 1', [1, 2]],
       ]);
+    });
+
+    it('lists recently played matches for result corrections', async () => {
+      const targets = await new ListLockTargets(guilds, calendar, clock).execute('g1', 'recent');
+      expect(targets.weeks.map((t) => t.matches.map((m) => m.id))).toEqual([[3]]);
     });
 
     it('drops weeks without upcoming matches and inactive servers', async () => {

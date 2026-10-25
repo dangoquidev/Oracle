@@ -24,7 +24,8 @@ import type {
   ProviderTeam,
   ProviderTournament,
 } from '../application/ports/match-data-provider.js';
-import type { PredictionRepository } from '../application/ports/prediction-repository.js';
+import type { JudgedPrediction, PredictionRepository } from '../application/ports/prediction-repository.js';
+import type { ResultOverrideRepository } from '../application/ports/result-override-repository.js';
 import type {
   ActivePublication,
   Publication,
@@ -38,6 +39,7 @@ import type { Guild, PauseReason } from '../domain/guild/guild.js';
 import type { LockOverride } from '../domain/lock/lock-override.js';
 import type { Match } from '../domain/match/match.js';
 import type { Prediction } from '../domain/prediction/prediction.js';
+import type { ResultOverride } from '../domain/scoring/match-outcome.js';
 import type { PredictionWeek } from '../domain/schedule/prediction-week.js';
 import type {
   ChannelId,
@@ -130,6 +132,7 @@ export class InMemoryCalendarRepository implements CalendarRepository {
   readonly views: WeekView[] = [];
   readonly teamsMissingEmoji: TeamMissingEmoji[] = [];
   readonly emojis = new Map<TeamId, string>();
+  readonly knownTeamNames = new Set<string>();
 
   applySnapshot(snapshot: CalendarSnapshot): Promise<void> {
     this.snapshots.push(snapshot);
@@ -152,8 +155,25 @@ export class InMemoryCalendarRepository implements CalendarRepository {
   findMatch(matchId: MatchId): Promise<Match | null> {
     return Promise.resolve(this.matches.find((match) => match.id === matchId) ?? null);
   }
+  findMatches(matchIds: readonly MatchId[]): Promise<Match[]> {
+    return Promise.resolve(this.matches.filter((match) => matchIds.includes(match.id)));
+  }
   findWeekMatches(weekId: WeekId): Promise<Match[]> {
     return Promise.resolve(this.matches.filter((match) => match.weekId === weekId));
+  }
+  findMatchesStartedBetween(from: Date, to: Date): Promise<Match[]> {
+    return Promise.resolve(
+      this.matches.filter((match) => match.scheduledAt >= from && match.scheduledAt <= to),
+    );
+  }
+  findCompetitionsAwaitingResults(from: Date, to: Date): Promise<CompetitionId[]> {
+    const ids = this.matches
+      .filter((match) => match.status === 'scheduled' && match.scheduledAt >= from && match.scheduledAt <= to)
+      .map((match) => match.competitionId);
+    return Promise.resolve([...new Set(ids)]);
+  }
+  findKnownTeamNames(names: readonly string[]): Promise<Set<string>> {
+    return Promise.resolve(new Set(names.filter((name) => this.knownTeamNames.has(name))));
   }
   findTeamsMissingEmoji(_upcomingFrom: Date, limit: number): Promise<TeamMissingEmoji[]> {
     return Promise.resolve(
@@ -167,20 +187,17 @@ export class InMemoryCalendarRepository implements CalendarRepository {
 }
 
 export class InMemoryPredictionRepository implements PredictionRepository {
-  readonly predictions: Prediction[] = [];
+  readonly predictions: JudgedPrediction[] = [];
+  readonly outcomeWrites: { count: number; at: Date }[] = [];
 
   save(prediction: Prediction): Promise<void> {
-    const index = this.predictions.findIndex(
-      (p) =>
-        p.guildId === prediction.guildId &&
-        p.userId === prediction.userId &&
-        p.matchId === prediction.matchId,
-    );
-    if (index >= 0) this.predictions.splice(index, 1, prediction);
-    else this.predictions.push(prediction);
+    const judged: JudgedPrediction = { ...prediction, outcome: { status: 'pending' } };
+    const index = this.indexOf(prediction);
+    if (index >= 0) this.predictions.splice(index, 1, judged);
+    else this.predictions.push(judged);
     return Promise.resolve();
   }
-  findByUser(guildId: GuildId, userId: UserId, matchIds: readonly MatchId[]): Promise<Prediction[]> {
+  findByUser(guildId: GuildId, userId: UserId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]> {
     return Promise.resolve(
       this.predictions.filter(
         (p) => p.guildId === guildId && p.userId === userId && matchIds.includes(p.matchId),
@@ -191,6 +208,51 @@ export class InMemoryPredictionRepository implements PredictionRepository {
     return Promise.resolve(
       this.predictions.filter((p) => p.guildId === guildId && matchIds.includes(p.matchId)),
     );
+  }
+  findForScoring(matchIds: readonly MatchId[], guildId: GuildId | null): Promise<JudgedPrediction[]> {
+    return Promise.resolve(
+      this.predictions.filter(
+        (p) => matchIds.includes(p.matchId) && (guildId === null || p.guildId === guildId),
+      ),
+    );
+  }
+  saveOutcomes(
+    judged: readonly Pick<JudgedPrediction, 'guildId' | 'userId' | 'matchId' | 'outcome'>[],
+    at: Date,
+  ): Promise<void> {
+    for (const update of judged) {
+      const index = this.indexOf(update);
+      const existing = this.predictions[index];
+      if (existing) this.predictions.splice(index, 1, { ...existing, outcome: update.outcome });
+    }
+    this.outcomeWrites.push({ count: judged.length, at });
+    return Promise.resolve();
+  }
+  private indexOf(key: Pick<Prediction, 'guildId' | 'userId' | 'matchId'>): number {
+    return this.predictions.findIndex(
+      (p) => p.guildId === key.guildId && p.userId === key.userId && p.matchId === key.matchId,
+    );
+  }
+}
+
+export class InMemoryResultOverrideRepository implements ResultOverrideRepository {
+  readonly overrides = new Map<string, ResultOverride>();
+
+  findForMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<Map<MatchId, ResultOverride>> {
+    const found = new Map<MatchId, ResultOverride>();
+    for (const matchId of matchIds) {
+      const override = this.overrides.get(`${guildId}:${matchId}`);
+      if (override) found.set(matchId, override);
+    }
+    return Promise.resolve(found);
+  }
+  set(guildId: GuildId, matchId: MatchId, override: ResultOverride): Promise<void> {
+    this.overrides.set(`${guildId}:${matchId}`, override);
+    return Promise.resolve();
+  }
+  clear(guildId: GuildId, matchId: MatchId): Promise<void> {
+    this.overrides.delete(`${guildId}:${matchId}`);
+    return Promise.resolve();
   }
 }
 

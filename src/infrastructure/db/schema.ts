@@ -152,6 +152,10 @@ export const predictions = pgTable(
     scoreTeam1: smallint('score_team1'),
     scoreTeam2: smallint('score_team2'),
     submittedAt: timestamptz('submitted_at').notNull(),
+    /** pending: not judged yet; scored: points awarded; void: match cancelled, prediction ignored. */
+    outcome: text('outcome', { enum: ['pending', 'scored', 'void'] })
+      .notNull()
+      .default('pending'),
     points: integer('points'),
     scoredAt: timestamptz('scored_at'),
   },
@@ -214,4 +218,24 @@ export const dispatchLog = pgTable(
     dispatchedAt: timestamptz('dispatched_at').notNull(),
   },
   (table) => [primaryKey({ columns: [table.guildId, table.key] })],
+);
+
+/** Admin corrections or cancellations of a match result, for one server. */
+export const resultOverrides = pgTable(
+  'result_overrides',
+  {
+    guildId: text('guild_id')
+      .notNull()
+      .references(() => guilds.id),
+    matchId: integer('match_id')
+      .notNull()
+      .references(() => matches.id),
+    cancelled: boolean('cancelled').notNull(),
+    winnerSide: smallint('winner_side'),
+    team1Score: smallint('team1_score'),
+    team2Score: smallint('team2_score'),
+    setBy: text('set_by').notNull(),
+    setAt: timestamptz('set_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.guildId, table.matchId] })],
 );

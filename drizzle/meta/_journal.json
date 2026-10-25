@@ -15,6 +15,13 @@
       "when": 1792959066160,
       "tag": "0001_lock_overrides_and_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792960495638,
+      "tag": "0002_results_and_scoring",
+      "breakpoints": true
     }
   ]
 }

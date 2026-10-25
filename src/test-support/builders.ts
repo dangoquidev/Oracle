@@ -55,6 +55,7 @@ export const matchViewOf = (source: Match, teams: Record<number, TeamView> = {})
   scheduledAt: source.scheduledAt,
   bestOf: source.bestOf,
   status: source.status,
+  result: source.result,
   team1:
     source.team1Id === null ? null : (teams[source.team1Id] ?? team(source.team1Id, `T${source.team1Id}`)),
   team2:
