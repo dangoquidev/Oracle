@@ -7,6 +7,7 @@ import type { GuildMessenger } from '../ports/guild-messenger.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
 import type { Logger } from '../ports/logger.js';
 import type { PublicationRepository } from '../ports/publication-repository.js';
+import { announcementFingerprint } from '../read-models/fingerprint.js';
 
 /** Announces the weeks that are due on every active server. Safe to run every minute. */
 export class PublishDueWeeks {
@@ -55,6 +56,7 @@ export class PublishDueWeeks {
     if (publicationId === null) return [];
 
     try {
+      const weeks = await this.calendar.findWeekViews(weekIds);
       const messageId = await this.messenger.announceWeeks({
         guildId: guild.id,
         channelId: settings.channelId,
@@ -62,9 +64,9 @@ export class PublishDueWeeks {
         locale: settings.locale,
         timeZone: settings.timeZone,
         publicationId,
-        weeks: await this.calendar.findWeekViews(weekIds),
+        weeks,
       });
-      await this.publications.attachMessage(publicationId, messageId);
+      await this.publications.attachMessage(publicationId, messageId, announcementFingerprint(weeks));
     } catch (error) {
       await this.publications.release(publicationId);
       throw error;

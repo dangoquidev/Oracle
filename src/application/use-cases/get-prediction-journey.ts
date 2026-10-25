@@ -1,8 +1,7 @@
 import { accessOf } from '../../domain/guild/guild.js';
 import type { Locale } from '../../domain/guild/guild-settings.js';
-import { isLockedAt } from '../../domain/lock/lock-policy.js';
-import { hasKnownOpponents } from '../../domain/match/match.js';
 import { choicesFor, type PredictionChoice } from '../../domain/prediction/prediction-choice.js';
+import type { VoteDistribution } from '../../domain/prediction/vote-distribution.js';
 import type { GuildId, UserId } from '../../domain/shared/ids.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
 import type { CalendarRepository } from '../ports/calendar-repository.js';
@@ -10,10 +9,12 @@ import type { Clock } from '../ports/clock.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
 import type { PredictionRepository } from '../ports/prediction-repository.js';
 import type { PublicationId, PublicationRepository } from '../ports/publication-repository.js';
+import { areVotesVisible, predictionStateOf, type MatchPredictionState } from '../read-models/match-state.js';
+import { loadDistributions } from '../read-models/vote-distributions.js';
 import type { MatchView } from '../read-models/views.js';
-import { LockCalculator } from './lock-calculator.js';
+import type { LockCalculatorFactory } from './lock-calculator.js';
 
-export type JourneyItemState = 'open' | 'locked' | 'awaiting-opponents' | 'closed';
+export type JourneyItemState = MatchPredictionState;
 
 export interface JourneyItem {
   readonly match: MatchView;
@@ -23,6 +24,8 @@ export interface JourneyItem {
   readonly state: JourneyItemState;
   readonly choices: readonly PredictionChoice[];
   readonly current: PredictionChoice | null;
+  /** How the server voted, once votes are closed. */
+  readonly distribution: VoteDistribution | null;
 }
 
 export interface PredictionJourney {
@@ -41,6 +44,7 @@ export class GetPredictionJourney {
     private readonly publications: PublicationRepository,
     private readonly calendar: CalendarRepository,
     private readonly predictions: PredictionRepository,
+    private readonly locks: LockCalculatorFactory,
     private readonly clock: Clock,
   ) {}
 
@@ -60,32 +64,30 @@ export class GetPredictionJourney {
     const existing = await this.predictions.findByUser(guildId, userId, matchIds);
     const currentByMatch = new Map(existing.map((prediction) => [prediction.matchId, prediction.choice]));
 
-    const locks = new LockCalculator(this.calendar, guild.settings);
+    const locks = this.locks.forGuild(guildId, guild.settings);
     const now = this.clock.now();
-    const items: JourneyItem[] = [];
+    const rows: Omit<JourneyItem, 'distribution'>[] = [];
     for (const week of weeks) {
       for (const match of week.matches) {
         const lockAt = await locks.lockAtOf(match);
-        items.push({
+        rows.push({
           match,
           competitionName: week.competitionName,
           weekName: week.week.name,
           lockAt,
-          state: stateOf(match, lockAt, now),
+          state: predictionStateOf(match, lockAt, now),
           choices: choicesFor(match.bestOf),
           current: currentByMatch.get(match.id) ?? null,
         });
       }
     }
 
+    const distributions = await loadDistributions(
+      this.predictions,
+      guildId,
+      rows.filter((row) => areVotesVisible(row.state)).map((row) => row.match),
+    );
+    const items = rows.map((row) => ({ ...row, distribution: distributions.get(row.match.id) ?? null }));
     return ok({ publicationId, locale: guild.settings.locale, timeZone: guild.settings.timeZone, items });
   }
-}
-
-function stateOf(match: MatchView, lockAt: Date, now: Date): JourneyItemState {
-  if (match.status !== 'scheduled') return 'closed';
-  if (!hasKnownOpponents({ team1Id: match.team1?.id ?? null, team2Id: match.team2?.id ?? null })) {
-    return 'awaiting-opponents';
-  }
-  return isLockedAt(lockAt, now) ? 'locked' : 'open';
 }

@@ -166,6 +166,7 @@ export const publications = pgTable('publications', {
   channelId: text('channel_id').notNull(),
   messageId: text('message_id'),
   publishedAt: timestamptz('published_at').notNull(),
+  fingerprint: text('fingerprint'),
 });
 
 export const publicationWeeks = pgTable(
@@ -184,4 +185,33 @@ export const publicationWeeks = pgTable(
     primaryKey({ columns: [table.publicationId, table.weekId] }),
     unique().on(table.guildId, table.weekId),
   ],
+);
+
+export const lockOverrides = pgTable(
+  'lock_overrides',
+  {
+    guildId: text('guild_id')
+      .notNull()
+      .references(() => guilds.id),
+    matchId: integer('match_id')
+      .notNull()
+      .references(() => matches.id),
+    state: text('state', { enum: ['open', 'closed'] }).notNull(),
+    setBy: text('set_by').notNull(),
+    setAt: timestamptz('set_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.guildId, table.matchId] })],
+);
+
+/** One-off notifications already sent (reminders, vote reveals), keyed per server. */
+export const dispatchLog = pgTable(
+  'dispatch_log',
+  {
+    guildId: text('guild_id')
+      .notNull()
+      .references(() => guilds.id),
+    key: text('key').notNull(),
+    dispatchedAt: timestamptz('dispatched_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.guildId, table.key] })],
 );

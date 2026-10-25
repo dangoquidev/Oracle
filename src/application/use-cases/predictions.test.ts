@@ -5,10 +5,12 @@ import {
   FixedClock,
   InMemoryCalendarRepository,
   InMemoryGuildRepository,
+  InMemoryLockOverrideRepository,
   InMemoryPredictionRepository,
   InMemoryPublicationRepository,
 } from '../../test-support/fakes.js';
 import { GetPredictionJourney } from './get-prediction-journey.js';
+import { LockCalculatorFactory } from './lock-calculator.js';
 import { SubmitPrediction } from './submit-prediction.js';
 
 const g2Wins: PredictionChoice = { kind: 'winner', winner: 1 };
@@ -32,6 +34,8 @@ describe('predictions', () => {
   let predictions: InMemoryPredictionRepository;
   let publications: InMemoryPublicationRepository;
   let clock: FixedClock;
+  let overrides: InMemoryLockOverrideRepository;
+  let locks: LockCalculatorFactory;
 
   beforeEach(async () => {
     guilds = new InMemoryGuildRepository().add(activeGuild('g1'));
@@ -44,6 +48,8 @@ describe('predictions', () => {
     publications = new InMemoryPublicationRepository();
     await publications.reserve('g1', [1], 'channel-1', new Date());
     clock = new FixedClock(new Date('2026-08-01T10:00:00Z'));
+    overrides = new InMemoryLockOverrideRepository();
+    locks = new LockCalculatorFactory(calendar, overrides);
   });
 
   describe('SubmitPrediction', () => {
@@ -52,7 +58,7 @@ describe('predictions', () => {
       choice: PredictionChoice,
       submittedAt = new Date('2026-08-01T13:59:59Z'),
     ) =>
-      new SubmitPrediction(guilds, calendar, predictions).execute({
+      new SubmitPrediction(guilds, calendar, predictions, locks).execute({
         guildId: 'g1',
         userId: 'u1',
         matchId,
@@ -99,6 +105,23 @@ describe('predictions', () => {
       expect(await submit(4, g2Wins)).toEqual({ ok: false, error: 'match-not-open' });
     });
 
+    it('accepts votes after the computed lock when an admin reopened the match, until kick-off', async () => {
+      await overrides.set('g1', [2], { state: 'open', at: new Date('2026-08-01T14:30:00Z') }, 'admin');
+      expect((await submit(2, twoOne, new Date('2026-08-01T18:59:00Z'))).ok).toBe(true);
+      expect(await submit(2, twoOne, new Date('2026-08-01T19:00:00Z'))).toEqual({
+        ok: false,
+        error: 'locked',
+      });
+    });
+
+    it('refuses votes once an admin closed the match early', async () => {
+      await overrides.set('g1', [1], { state: 'closed', at: new Date('2026-08-01T09:00:00Z') }, 'admin');
+      expect(await submit(1, g2Wins, new Date('2026-08-01T09:30:00Z'))).toEqual({
+        ok: false,
+        error: 'locked',
+      });
+    });
+
     it('rejects predictions on inactive servers', async () => {
       guilds.add({ ...activeGuild('g1'), status: 'paused' });
       expect(await submit(1, g2Wins)).toEqual({ ok: false, error: 'guild-not-active' });
@@ -107,7 +130,7 @@ describe('predictions', () => {
 
   describe('GetPredictionJourney', () => {
     const journey = (guildId = 'g1', publicationId = 1) =>
-      new GetPredictionJourney(guilds, publications, calendar, predictions, clock).execute(
+      new GetPredictionJourney(guilds, publications, calendar, predictions, locks, clock).execute(
         guildId,
         'u1',
         publicationId,
@@ -145,10 +168,48 @@ describe('predictions', () => {
       expect(result.value.items[0]?.weekName).toBe('Week 1');
     });
 
-    it('marks matches past their lock', async () => {
+    it('marks matches past their lock and reveals how the server voted', async () => {
+      await predictions.save({
+        guildId: 'g1',
+        userId: 'u1',
+        matchId: 1,
+        choice: g2Wins,
+        submittedAt: new Date(),
+      });
+      await predictions.save({
+        guildId: 'g1',
+        userId: 'u2',
+        matchId: 1,
+        choice: g2Wins,
+        submittedAt: new Date(),
+      });
+      await predictions.save({
+        guildId: 'g2',
+        userId: 'u3',
+        matchId: 1,
+        choice: g2Wins,
+        submittedAt: new Date(),
+      });
       clock.set(new Date('2026-08-01T15:00:00Z'));
+
       const result = await journey();
-      expect(result.ok && result.value.items[0]?.state).toBe('locked');
+
+      if (!result.ok) throw new Error(result.error);
+      expect(result.value.items[0]?.state).toBe('locked');
+      expect(result.value.items[0]?.distribution).toMatchObject({ total: 2, team1Percent: 100 });
+      expect(result.value.items[2]?.distribution).toBeNull();
+    });
+
+    it('keeps votes hidden while a match is open', async () => {
+      await predictions.save({
+        guildId: 'g1',
+        userId: 'u2',
+        matchId: 1,
+        choice: g2Wins,
+        submittedAt: new Date(),
+      });
+      const result = await journey();
+      expect(result.ok && result.value.items[0]?.distribution).toBeNull();
     });
 
     it('refuses publications of another server or unknown ones', async () => {

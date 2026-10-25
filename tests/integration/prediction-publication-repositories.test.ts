@@ -88,6 +88,23 @@ describe('prediction and publication repositories', () => {
       ]);
     });
 
+    it('lists every prediction of a server on given matches', async () => {
+      const [bo3] = matchIds as [number];
+      const choice = { kind: 'winner', winner: 1 } as const;
+      for (const [guildId, userId] of [
+        ['g1', 'u1'],
+        ['g1', 'u2'],
+        ['g2', 'u3'],
+      ] as const) {
+        await predictions.save({ guildId, userId, matchId: bo3, choice, submittedAt: new Date() });
+      }
+      expect((await predictions.findByMatches('g1', [bo3])).map((p) => p.userId).toSorted()).toEqual([
+        'u1',
+        'u2',
+      ]);
+      expect(await predictions.findByMatches('g1', [])).toEqual([]);
+    });
+
     it('scopes predictions by server and user', async () => {
       const [bo3] = matchIds as [number];
       const choice = { kind: 'winner', winner: 1 } as const;
@@ -114,10 +131,27 @@ describe('prediction and publication repositories', () => {
     it('attaches the message and releases failed reservations', async () => {
       const id = await publications.reserve('g1', weekIds, 'c', new Date());
       if (id === null) throw new Error('reservation failed');
-      await publications.attachMessage(id, 'msg');
+      await publications.attachMessage(id, 'msg', 'fp1');
+      expect(await publications.findActive('g1', new Date('2026-07-01T00:00:00Z'))).toEqual([
+        { id, guildId: 'g1', channelId: 'c', messageId: 'msg', fingerprint: 'fp1', weekIds },
+      ]);
+      await publications.setFingerprint(id, 'fp2');
+      expect((await publications.findActive('g1', new Date('2026-07-01T00:00:00Z')))[0]?.fingerprint).toBe(
+        'fp2',
+      );
       await publications.release(id);
       expect(await publications.find(id)).toBeNull();
       expect(await publications.findPublishedWeekIds('g1', weekIds)).toEqual(new Set());
+    });
+
+    it('only lists announcements with matches still to come', async () => {
+      const id = await publications.reserve('g1', weekIds, 'c', new Date());
+      // Week 1 is on 07-24 and week 2 on 07-31: after 07-25 only week 2 keeps the announcement active.
+      expect(
+        (await publications.findActive('g1', new Date('2026-07-25T00:00:00Z'))).map((p) => p.id),
+      ).toEqual([id]);
+      expect(await publications.findActive('g1', new Date('2026-08-01T00:00:00Z'))).toEqual([]);
+      expect(await publications.findActive('g2', new Date('2026-07-01T00:00:00Z'))).toEqual([]);
     });
 
     it('propagates unexpected errors', async () => {

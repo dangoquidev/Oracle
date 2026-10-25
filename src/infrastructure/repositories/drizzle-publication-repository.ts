@@ -1,12 +1,13 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray } from 'drizzle-orm';
 import type {
+  ActivePublication,
   Publication,
   PublicationId,
   PublicationRepository,
 } from '../../application/ports/publication-repository.js';
 import type { ChannelId, GuildId, WeekId } from '../../domain/shared/ids.js';
 import type { Database } from '../db/client.js';
-import { publications, publicationWeeks } from '../db/schema.js';
+import { matches, publications, publicationWeeks } from '../db/schema.js';
 import { isUniqueViolation } from './sql-helpers.js';
 
 export class DrizzlePublicationRepository implements PublicationRepository {
@@ -45,8 +46,11 @@ export class DrizzlePublicationRepository implements PublicationRepository {
     }
   }
 
-  async attachMessage(publicationId: PublicationId, messageId: string): Promise<void> {
-    await this.db.update(publications).set({ messageId }).where(eq(publications.id, publicationId));
+  async attachMessage(publicationId: PublicationId, messageId: string, fingerprint: string): Promise<void> {
+    await this.db
+      .update(publications)
+      .set({ messageId, fingerprint })
+      .where(eq(publications.id, publicationId));
   }
 
   async release(publicationId: PublicationId): Promise<void> {
@@ -62,5 +66,38 @@ export class DrizzlePublicationRepository implements PublicationRepository {
     const [first] = rows;
     if (!first) return null;
     return { id: publicationId, guildId: first.guildId, weekIds: rows.map((row) => row.weekId) };
+  }
+
+  async findActive(guildId: GuildId, endingAfter: Date): Promise<ActivePublication[]> {
+    const active = this.db
+      .selectDistinct({ id: publicationWeeks.publicationId })
+      .from(publicationWeeks)
+      .innerJoin(matches, eq(matches.weekId, publicationWeeks.weekId))
+      .where(and(eq(publicationWeeks.guildId, guildId), gte(matches.scheduledAt, endingAfter)));
+    const rows = await this.db
+      .select({ publication: publications, weekId: publicationWeeks.weekId })
+      .from(publications)
+      .innerJoin(publicationWeeks, eq(publicationWeeks.publicationId, publications.id))
+      .where(inArray(publications.id, active))
+      .orderBy(asc(publications.id), asc(publicationWeeks.weekId));
+
+    const byId = new Map<PublicationId, ActivePublication & { weekIds: WeekId[] }>();
+    for (const { publication, weekId } of rows) {
+      const entry = byId.get(publication.id) ?? {
+        id: publication.id,
+        guildId: publication.guildId,
+        channelId: publication.channelId,
+        messageId: publication.messageId,
+        fingerprint: publication.fingerprint,
+        weekIds: [],
+      };
+      entry.weekIds.push(weekId);
+      byId.set(publication.id, entry);
+    }
+    return [...byId.values()];
+  }
+
+  async setFingerprint(publicationId: PublicationId, fingerprint: string): Promise<void> {
+    await this.db.update(publications).set({ fingerprint }).where(eq(publications.id, publicationId));
   }
 }

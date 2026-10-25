@@ -8,7 +8,7 @@ import { err, ok, type Result } from '../../domain/shared/result.js';
 import type { CalendarRepository } from '../ports/calendar-repository.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
 import type { PredictionRepository } from '../ports/prediction-repository.js';
-import { LockCalculator } from './lock-calculator.js';
+import type { LockCalculatorFactory } from './lock-calculator.js';
 
 export interface SubmitPredictionCommand {
   readonly guildId: GuildId;
@@ -33,6 +33,7 @@ export class SubmitPrediction {
     private readonly guilds: GuildRepository,
     private readonly calendar: CalendarRepository,
     private readonly predictions: PredictionRepository,
+    private readonly locks: LockCalculatorFactory,
   ) {}
 
   async execute(command: SubmitPredictionCommand): Promise<Result<Prediction, SubmitPredictionError>> {
@@ -45,7 +46,7 @@ export class SubmitPrediction {
     if (match.status !== 'scheduled') return err('match-not-open');
     if (!isChoiceValidFor(command.choice, match.bestOf)) return err('invalid-choice');
 
-    const lockAt = await new LockCalculator(this.calendar, guild.settings).lockAtOf(match);
+    const lockAt = await this.locks.forGuild(guild.id, guild.settings).lockAtOf(match);
     if (isLockedAt(lockAt, command.submittedAt)) return err('locked');
 
     const prediction: Prediction = {

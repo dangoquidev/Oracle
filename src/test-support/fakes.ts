@@ -4,7 +4,14 @@ import type {
   TeamMissingEmoji,
 } from '../application/ports/calendar-repository.js';
 import type { Clock } from '../application/ports/clock.js';
-import type { GuildMessenger, WeekAnnouncement } from '../application/ports/guild-messenger.js';
+import type { DispatchLog } from '../application/ports/dispatch-log.js';
+import type {
+  GuildMessenger,
+  LockReminder,
+  VoteReveal,
+  WeekAnnouncement,
+} from '../application/ports/guild-messenger.js';
+import type { LockOverrideRepository } from '../application/ports/lock-override-repository.js';
 import type {
   GuildPermissionChecker,
   PublicationCheck,
@@ -18,12 +25,17 @@ import type {
   ProviderTournament,
 } from '../application/ports/match-data-provider.js';
 import type { PredictionRepository } from '../application/ports/prediction-repository.js';
-import type { Publication, PublicationRepository } from '../application/ports/publication-repository.js';
+import type {
+  ActivePublication,
+  Publication,
+  PublicationRepository,
+} from '../application/ports/publication-repository.js';
 import type { TeamEmojiStore } from '../application/ports/team-emoji-store.js';
 import type { WeekView } from '../application/read-models/views.js';
 import type { CompetitionSource } from '../domain/competition/competition.js';
 import type { GuildSettings, Locale } from '../domain/guild/guild-settings.js';
 import type { Guild, PauseReason } from '../domain/guild/guild.js';
+import type { LockOverride } from '../domain/lock/lock-override.js';
 import type { Match } from '../domain/match/match.js';
 import type { Prediction } from '../domain/prediction/prediction.js';
 import type { PredictionWeek } from '../domain/schedule/prediction-week.js';
@@ -175,10 +187,20 @@ export class InMemoryPredictionRepository implements PredictionRepository {
       ),
     );
   }
+  findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<Prediction[]> {
+    return Promise.resolve(
+      this.predictions.filter((p) => p.guildId === guildId && matchIds.includes(p.matchId)),
+    );
+  }
 }
 
 export class InMemoryPublicationRepository implements PublicationRepository {
-  readonly publications = new Map<number, Publication & { messageId: string | null }>();
+  readonly publications = new Map<
+    number,
+    Publication & { channelId: string; messageId: string | null; fingerprint: string | null }
+  >();
+  /** Publications whose weeks are over; every other one is considered active. */
+  readonly finished = new Set<number>();
   private nextId = 1;
 
   findPublishedWeekIds(guildId: GuildId, weekIds: readonly WeekId[]): Promise<Set<WeekId>> {
@@ -191,7 +213,7 @@ export class InMemoryPublicationRepository implements PublicationRepository {
   reserve(
     guildId: GuildId,
     weekIds: readonly WeekId[],
-    _channelId: ChannelId,
+    channelId: ChannelId,
     _at: Date,
   ): Promise<number | null> {
     const taken = [...this.publications.values()].some(
@@ -199,12 +221,12 @@ export class InMemoryPublicationRepository implements PublicationRepository {
     );
     if (taken) return Promise.resolve(null);
     const id = this.nextId++;
-    this.publications.set(id, { id, guildId, weekIds, messageId: null });
+    this.publications.set(id, { id, guildId, weekIds, channelId, messageId: null, fingerprint: null });
     return Promise.resolve(id);
   }
-  attachMessage(publicationId: number, messageId: string): Promise<void> {
+  attachMessage(publicationId: number, messageId: string, fingerprint: string): Promise<void> {
     const publication = this.publications.get(publicationId);
-    if (publication) this.publications.set(publicationId, { ...publication, messageId });
+    if (publication) this.publications.set(publicationId, { ...publication, messageId, fingerprint });
     return Promise.resolve();
   }
   release(publicationId: number): Promise<void> {
@@ -212,7 +234,49 @@ export class InMemoryPublicationRepository implements PublicationRepository {
     return Promise.resolve();
   }
   find(publicationId: number): Promise<Publication | null> {
-    return Promise.resolve(this.publications.get(publicationId) ?? null);
+    const publication = this.publications.get(publicationId);
+    return Promise.resolve(
+      publication ? { id: publication.id, guildId: publication.guildId, weekIds: publication.weekIds } : null,
+    );
+  }
+  findActive(guildId: GuildId, _endingAfter: Date): Promise<ActivePublication[]> {
+    return Promise.resolve(
+      [...this.publications.values()].filter((p) => p.guildId === guildId && !this.finished.has(p.id)),
+    );
+  }
+  setFingerprint(publicationId: number, fingerprint: string): Promise<void> {
+    const publication = this.publications.get(publicationId);
+    if (publication) this.publications.set(publicationId, { ...publication, fingerprint });
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryLockOverrideRepository implements LockOverrideRepository {
+  readonly overrides = new Map<string, LockOverride & { setBy: UserId }>();
+
+  findForMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<Map<MatchId, LockOverride>> {
+    const found = new Map<MatchId, LockOverride>();
+    for (const matchId of matchIds) {
+      const override = this.overrides.get(`${guildId}:${matchId}`);
+      if (override) found.set(matchId, { state: override.state, at: override.at });
+    }
+    return Promise.resolve(found);
+  }
+  set(guildId: GuildId, matchIds: readonly MatchId[], override: LockOverride, setBy: UserId): Promise<void> {
+    for (const matchId of matchIds) this.overrides.set(`${guildId}:${matchId}`, { ...override, setBy });
+    return Promise.resolve();
+  }
+}
+
+export class InMemoryDispatchLog implements DispatchLog {
+  readonly sent = new Map<string, Date>();
+
+  findSent(guildId: GuildId, keys: readonly string[]): Promise<Set<string>> {
+    return Promise.resolve(new Set(keys.filter((key) => this.sent.has(`${guildId}:${key}`))));
+  }
+  record(guildId: GuildId, key: string, at: Date): Promise<void> {
+    this.sent.set(`${guildId}:${key}`, at);
+    return Promise.resolve();
   }
 }
 
@@ -220,6 +284,10 @@ export class RecordingMessenger implements GuildMessenger {
   readonly welcomes: GuildId[] = [];
   readonly pauses: { guildId: GuildId; reason: PauseReason; locale: Locale }[] = [];
   readonly announcements: WeekAnnouncement[] = [];
+  readonly updates: { messageId: string; announcement: WeekAnnouncement }[] = [];
+  readonly reminders: LockReminder[] = [];
+  readonly reveals: VoteReveal[] = [];
+  deletedMessages = new Set<string>();
   failWith: Error | null = null;
 
   sendWelcome(guildId: GuildId): Promise<void> {
@@ -236,6 +304,22 @@ export class RecordingMessenger implements GuildMessenger {
     if (this.failWith) return Promise.reject(this.failWith);
     this.announcements.push(announcement);
     return Promise.resolve(`message-${this.announcements.length}`);
+  }
+  updateAnnouncement(messageId: string, announcement: WeekAnnouncement): Promise<boolean> {
+    if (this.failWith) return Promise.reject(this.failWith);
+    if (this.deletedMessages.has(messageId)) return Promise.resolve(false);
+    this.updates.push({ messageId, announcement });
+    return Promise.resolve(true);
+  }
+  sendLockReminder(reminder: LockReminder): Promise<void> {
+    if (this.failWith) return Promise.reject(this.failWith);
+    this.reminders.push(reminder);
+    return Promise.resolve();
+  }
+  revealVotes(reveal: VoteReveal): Promise<void> {
+    if (this.failWith) return Promise.reject(this.failWith);
+    this.reveals.push(reveal);
+    return Promise.resolve();
   }
 }
 

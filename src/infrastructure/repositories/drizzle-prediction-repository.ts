@@ -47,6 +47,15 @@ export class DrizzlePredictionRepository implements PredictionRepository {
       );
     return rows.map(toPrediction);
   }
+
+  async findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<Prediction[]> {
+    if (matchIds.length === 0) return [];
+    const rows = await this.db
+      .select()
+      .from(predictions)
+      .where(and(eq(predictions.guildId, guildId), inArray(predictions.matchId, [...matchIds])));
+    return rows.map(toPrediction);
+  }
 }
 
 function toPrediction(row: PredictionRow): Prediction {

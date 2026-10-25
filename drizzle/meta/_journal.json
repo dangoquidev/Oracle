@@ -8,6 +8,13 @@
       "when": 1792956482389,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792959066160,
+      "tag": "0001_lock_overrides_and_notifications",
+      "breakpoints": true
     }
   ]
 }
