@@ -6,9 +6,9 @@ Pas d'argent ni de monnaie virtuelle : des points et des classements. Compétiti
 Les données (calendrier, équipes, logos, résultats) viennent de l'API Cargo de [Leaguepedia](https://lol.fandom.com),
 mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API directement.
 
-> État : **Phase 2**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
-> rappels et répartition des votes au lock, `/matches`, `/admin open|close`.
-> Les résultats et points, classements, récaps, autres commandes admin, stats et backups arrivent dans les phases suivantes.
+> État : **Phase 3**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
+> rappels et répartition des votes au lock, `/matches`, résultats et calcul des points, `/admin open|close|result|cancel|recalc`.
+> Les classements, récaps, autres commandes admin, stats et backups arrivent dans les phases suivantes.
 
 ## Sommaire
 
@@ -42,7 +42,12 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
    avec le score le plus joué), qui s'affiche aussi dans le parcours et dans `/matches`.
 8. L'annonce publiée est mise à jour automatiquement quand le calendrier change (équipes connues, horaires, logos), sans
    mentionner le rôle une seconde fois.
-9. Si le rôle ou le salon configuré est supprimé, le bot se met en pause et prévient les admins.
+9. Pendant les fenêtres de match, les résultats sont récupérés toutes les 5 minutes, puis les points sont calculés : bon
+   vainqueur 1 pt, score exact (Bo3/Bo5) +2 pts, barème configurable par compétition. Le calcul est idempotent : il peut
+   tourner autant de fois que nécessaire sans fausser les points.
+10. Un admin peut corriger un résultat ou annuler un match pour son serveur. Un match annulé n'est ni gagnant ni perdant :
+    ses pronos sont ignorés.
+11. Si le rôle ou le salon configuré est supprimé, le bot se met en pause et prévient les admins.
 
 ### Commandes
 
@@ -52,9 +57,13 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/matches [semaine] [compétition]`  | Tous             | Matchs de la semaine actuelle, précédente ou suivante, avec l'état des votes |
 | `/admin open semaine:… \| match:…`  | Gérer le serveur | Rouvre les votes jusqu'au début de chaque match                              |
 | `/admin close semaine:… \| match:…` | Gérer le serveur | Ferme les votes immédiatement                                                |
+| `/admin result match:… résultat:…`  | Gérer le serveur | Force ou corrige un résultat (ou revient à celui de Leaguepedia)             |
+| `/admin cancel match:… [restaurer]` | Gérer le serveur | Annule un match, ses pronos sont ignorés (`restaurer` annule l'annulation)   |
+| `/admin recalc`                     | Gérer le serveur | Recalcule tous les points du serveur                                         |
 
-Les réponses de `/matches` et `/admin` sont éphémères. Les options `semaine` et `match` de `/admin` proposent les semaines et
-matchs à venir en autocomplétion.
+Les réponses de `/matches` et `/admin` sont éphémères. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
+valeurs en autocomplétion : matchs à venir pour `open`/`close`, matchs récents pour `result`/`cancel`, et pour `résultat`, les
+scores possibles selon le format du match.
 
 ## Prérequis
 
@@ -148,8 +157,9 @@ docker compose logs -f bot
 
 - Le conteneur `bot` expose un healthcheck (`GET /health` : base joignable et connexion Discord prête).
 - Les jobs planifiés sont persistés par pg-boss dans le schéma `pgboss` et survivent aux redémarrages :
-  - `schedule-sync` (toutes les 6 h) : sync Leaguepedia, emojis des logos, mise à jour des annonces publiées ;
-  - `guild-tick` (chaque minute) : publications dues, rappels avant le lock, révélation des votes après le lock.
+  - `schedule-sync` (toutes les 6 h) : sync Leaguepedia, calcul des points, emojis des logos, mise à jour des annonces ;
+  - `guild-tick` (chaque minute) : publications dues, rappels avant le lock, révélation des votes après le lock ;
+  - `results-poll` (toutes les 5 min) : uniquement pendant une fenêtre de match, récupère les résultats et calcule les points.
 - Mise à jour : `git pull && docker compose up -d --build`.
 
 ## Architecture
