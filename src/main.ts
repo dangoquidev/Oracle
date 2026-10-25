@@ -6,9 +6,15 @@ import { GetConfigurationDraft } from './application/use-cases/get-configuration
 import { GetPredictionJourney } from './application/use-cases/get-prediction-journey.js';
 import { HandleResourceDeleted } from './application/use-cases/handle-resource-deleted.js';
 import { LeaveGuild } from './application/use-cases/leave-guild.js';
+import { ListLockTargets } from './application/use-cases/list-lock-targets.js';
+import { ListWeekMatches } from './application/use-cases/list-week-matches.js';
+import { LockCalculatorFactory } from './application/use-cases/lock-calculator.js';
 import { PublishDueWeeks } from './application/use-cases/publish-due-weeks.js';
 import { ReconcileGuilds } from './application/use-cases/reconcile-guilds.js';
+import { RefreshAnnouncements } from './application/use-cases/refresh-announcements.js';
 import { RegisterGuild } from './application/use-cases/register-guild.js';
+import { SendLockNotifications } from './application/use-cases/send-lock-notifications.js';
+import { SetLockOverride } from './application/use-cases/set-lock-override.js';
 import { SubmitPrediction } from './application/use-cases/submit-prediction.js';
 import { SyncSchedule } from './application/use-cases/sync-schedule.js';
 import { SyncTeamEmojis } from './application/use-cases/sync-team-emojis.js';
@@ -22,7 +28,9 @@ import { LeaguepediaProvider } from './infrastructure/leaguepedia/leaguepedia-pr
 import { createLogger } from './infrastructure/logger/pino-logger.js';
 import { seedCompetitions } from './infrastructure/repositories/competition-seeder.js';
 import { DrizzleCalendarRepository } from './infrastructure/repositories/drizzle-calendar-repository.js';
+import { DrizzleDispatchLog } from './infrastructure/repositories/drizzle-dispatch-log.js';
 import { DrizzleGuildRepository } from './infrastructure/repositories/drizzle-guild-repository.js';
+import { DrizzleLockOverrideRepository } from './infrastructure/repositories/drizzle-lock-override-repository.js';
 import { DrizzlePredictionRepository } from './infrastructure/repositories/drizzle-prediction-repository.js';
 import { DrizzlePublicationRepository } from './infrastructure/repositories/drizzle-publication-repository.js';
 import { JobScheduler, type RecurringTask } from './infrastructure/scheduler/job-scheduler.js';
@@ -51,6 +59,9 @@ async function main(): Promise<void> {
   const calendar = new DrizzleCalendarRepository(database.db);
   const predictions = new DrizzlePredictionRepository(database.db);
   const publications = new DrizzlePublicationRepository(database.db);
+  const lockOverrides = new DrizzleLockOverrideRepository(database.db);
+  const dispatchLog = new DrizzleDispatchLog(database.db);
+  const locks = new LockCalculatorFactory(calendar, lockOverrides);
 
   // ── External services ─────────────────────────────────────────────────────
   const leaguepedia = new LeaguepediaProvider(
@@ -74,6 +85,25 @@ async function main(): Promise<void> {
   const syncSchedule = new SyncSchedule(leaguepedia, calendar, COMPETITIONS, clock, logger);
   const syncTeamEmojis = new SyncTeamEmojis(calendar, emojiStore, clock, logger);
   const publishDueWeeks = new PublishDueWeeks(guilds, calendar, publications, messenger, clock, logger);
+  const refreshAnnouncements = new RefreshAnnouncements(
+    guilds,
+    publications,
+    calendar,
+    messenger,
+    clock,
+    logger,
+  );
+  const sendLockNotifications = new SendLockNotifications(
+    guilds,
+    publications,
+    calendar,
+    predictions,
+    dispatchLog,
+    locks,
+    messenger,
+    clock,
+    logger,
+  );
 
   const deps: DiscordDependencies = {
     logger,
@@ -84,8 +114,15 @@ async function main(): Promise<void> {
       checkGuildAccess: new CheckGuildAccess(guilds),
       getConfigurationDraft: new GetConfigurationDraft(guilds, COMPETITIONS),
       configureGuild: new ConfigureGuild(guilds, permissions, COMPETITIONS),
-      getPredictionJourney: new GetPredictionJourney(guilds, publications, calendar, predictions, clock),
-      submitPrediction: new SubmitPrediction(guilds, calendar, predictions),
+      getPredictionJourney: new GetPredictionJourney(
+        guilds,
+        publications,
+        calendar,
+        predictions,
+        locks,
+        clock,
+      ),
+      submitPrediction: new SubmitPrediction(guilds, calendar, predictions, locks),
       registerGuild,
       leaveGuild,
       handleResourceDeleted,
@@ -96,6 +133,9 @@ async function main(): Promise<void> {
         leaveGuild,
         handleResourceDeleted,
       ),
+      listWeekMatches: new ListWeekMatches(guilds, calendar, predictions, locks, COMPETITIONS, clock),
+      listLockTargets: new ListLockTargets(guilds, calendar, clock),
+      setLockOverride: new SetLockOverride(guilds, calendar, lockOverrides, clock),
     },
   };
 
@@ -106,11 +146,23 @@ async function main(): Promise<void> {
       name: 'schedule-sync',
       cron: '0 */6 * * *',
       run: async () => {
-        await syncSchedule.execute();
-        if (env.EMOJI_GUILD_IDS.length > 0) await syncTeamEmojis.execute();
+        try {
+          await syncSchedule.execute();
+        } finally {
+          // Competitions that did sync still deserve fresh logos and announcements.
+          if (env.EMOJI_GUILD_IDS.length > 0) await syncTeamEmojis.execute();
+          await refreshAnnouncements.executeForAll();
+        }
       },
     },
-    { name: 'publish-due-weeks', cron: '* * * * *', run: () => publishDueWeeks.executeForAll() },
+    {
+      name: 'guild-tick',
+      cron: '* * * * *',
+      run: async () => {
+        await publishDueWeeks.executeForAll();
+        await sendLockNotifications.executeForAll();
+      },
+    },
   ];
 
   // ── Discord ───────────────────────────────────────────────────────────────
@@ -122,7 +174,7 @@ async function main(): Promise<void> {
   client.once(Events.ClientReady, (ready) => {
     void (async () => {
       logger.info({ user: ready.user.tag, guilds: ready.guilds.cache.size }, 'Connected to Discord');
-      const commands = commandDefinitions();
+      const commands = commandDefinitions(COMPETITIONS);
       if (env.DISCORD_DEV_GUILD_ID) await ready.application.commands.set(commands, env.DISCORD_DEV_GUILD_ID);
       else await ready.application.commands.set(commands);
       await reconcileOnReady(ready, deps);

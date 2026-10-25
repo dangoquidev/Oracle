@@ -1,17 +1,26 @@
 import {
   ChannelType,
+  DiscordAPIError,
   PermissionFlagsBits,
+  RESTJSONErrorCodes,
   type Client,
   type Guild,
   type GuildTextBasedChannel,
   type MessageCreateOptions,
+  type MessageEditOptions,
 } from 'discord.js';
-import type { GuildMessenger, WeekAnnouncement } from '../../../application/ports/guild-messenger.js';
+import type {
+  GuildMessenger,
+  LockReminder,
+  VoteReveal,
+  WeekAnnouncement,
+} from '../../../application/ports/guild-messenger.js';
 import type { Logger } from '../../../application/ports/logger.js';
 import type { Locale } from '../../../domain/guild/guild-settings.js';
 import type { PauseReason } from '../../../domain/guild/guild.js';
-import type { GuildId } from '../../../domain/shared/ids.js';
+import type { ChannelId, GuildId } from '../../../domain/shared/ids.js';
 import type { MessageView } from '../components/payload.js';
+import { renderLockReminder, renderVoteReveal } from '../embeds/lock-notices.js';
 import { renderPauseNotice, renderWelcome } from '../embeds/notices.js';
 import { renderWeekAnnouncement } from '../embeds/week-announcement.js';
 
@@ -20,6 +29,11 @@ const WRITE_PERMISSIONS = [
   PermissionFlagsBits.SendMessages,
   PermissionFlagsBits.EmbedLinks,
 ];
+
+const GONE_ERRORS: ReadonlySet<number | string> = new Set([
+  RESTJSONErrorCodes.UnknownMessage,
+  RESTJSONErrorCodes.UnknownChannel,
+]);
 
 export class DiscordGuildMessenger implements GuildMessenger {
   constructor(
@@ -36,17 +50,49 @@ export class DiscordGuildMessenger implements GuildMessenger {
   }
 
   async announceWeeks(announcement: WeekAnnouncement): Promise<string> {
-    const guild = await this.client.guilds.fetch(announcement.guildId);
-    const channel = await guild.channels.fetch(announcement.channelId);
-    if (!channel?.isTextBased()) throw new Error(`Channel ${announcement.channelId} is not a text channel`);
-
-    const useEmojis = canUseExternalEmojis(channel, guild);
-    const view = renderWeekAnnouncement(announcement, useEmojis);
+    const { guild, channel } = await this.publicationChannel(announcement.guildId, announcement.channelId);
+    const view = renderWeekAnnouncement(announcement, canUseExternalEmojis(channel, guild));
     const message = await channel.send({
       ...toCreateOptions(view),
       allowedMentions: { roles: [announcement.pingRoleId] },
     });
     return message.id;
+  }
+
+  async updateAnnouncement(messageId: string, announcement: WeekAnnouncement): Promise<boolean> {
+    try {
+      const { guild, channel } = await this.publicationChannel(announcement.guildId, announcement.channelId);
+      const message = await channel.messages.fetch(messageId);
+      const view = renderWeekAnnouncement(announcement, canUseExternalEmojis(channel, guild));
+      // Editing never pings again: only new messages notify mentioned roles.
+      await message.edit(toEditOptions(view));
+      return true;
+    } catch (error) {
+      if (error instanceof DiscordAPIError && GONE_ERRORS.has(error.code)) return false;
+      throw error;
+    }
+  }
+
+  async sendLockReminder(reminder: LockReminder): Promise<void> {
+    const { guild, channel } = await this.publicationChannel(reminder.guildId, reminder.channelId);
+    const view = renderLockReminder(reminder, canUseExternalEmojis(channel, guild));
+    await channel.send({ ...toCreateOptions(view), allowedMentions: { roles: [reminder.pingRoleId] } });
+  }
+
+  async revealVotes(reveal: VoteReveal): Promise<void> {
+    const { guild, channel } = await this.publicationChannel(reveal.guildId, reveal.channelId);
+    const view = renderVoteReveal(reveal, canUseExternalEmojis(channel, guild));
+    await channel.send({ ...toCreateOptions(view), allowedMentions: { parse: [] } });
+  }
+
+  private async publicationChannel(
+    guildId: GuildId,
+    channelId: ChannelId,
+  ): Promise<{ guild: Guild; channel: GuildTextBasedChannel }> {
+    const guild = await this.client.guilds.fetch(guildId);
+    const channel = await guild.channels.fetch(channelId);
+    if (!channel?.isTextBased()) throw new Error(`Channel ${channelId} is not a text channel`);
+    return { guild, channel };
   }
 
   /**
@@ -87,6 +133,14 @@ function canUseExternalEmojis(channel: GuildTextBasedChannel, guild: Guild): boo
 }
 
 function toCreateOptions(view: MessageView): MessageCreateOptions {
+  return {
+    ...(view.content ? { content: view.content } : {}),
+    embeds: view.embeds,
+    components: view.components,
+  };
+}
+
+function toEditOptions(view: MessageView): MessageEditOptions {
   return {
     ...(view.content ? { content: view.content } : {}),
     embeds: view.embeds,

@@ -2,11 +2,14 @@ import {
   DiscordAPIError,
   MessageFlags,
   RESTJSONErrorCodes,
+  type ChatInputCommandInteraction,
   type Interaction,
   type RepliableInteraction,
 } from 'discord.js';
 import type { GuildAccess } from '../../domain/guild/guild.js';
+import { handleAdminAutocomplete, handleAdminCommand } from './commands/admin-command.js';
 import { handleConfigureCommand } from './commands/configure-command.js';
+import { handleMatchesCommand } from './commands/matches-command.js';
 import { CONFIGURE_SCOPE, PREDICTION_SCOPE } from './components/custom-id.js';
 import type { DiscordDependencies } from './dependencies.js';
 import { handleConfigureInteraction } from './flows/configure-wizard-handler.js';
@@ -26,7 +29,23 @@ export function createInteractionRouter(
   };
 }
 
+type CommandHandler = (
+  interaction: ChatInputCommandInteraction<'cached'>,
+  deps: DiscordDependencies,
+) => Promise<void>;
+
+/** Commands that require a configured server (everything but /configure). */
+const GATED_COMMANDS: Readonly<Record<string, CommandHandler>> = {
+  matches: handleMatchesCommand,
+  admin: handleAdminCommand,
+};
+
 async function route(interaction: Interaction, deps: DiscordDependencies): Promise<void> {
+  if (interaction.isAutocomplete()) {
+    if (interaction.inCachedGuild() && interaction.commandName === 'admin')
+      await handleAdminAutocomplete(interaction, deps);
+    return;
+  }
   if (!interaction.isRepliable()) return;
   if (!interaction.inCachedGuild()) {
     await interaction.reply({
@@ -41,8 +60,9 @@ async function route(interaction: Interaction, deps: DiscordDependencies): Promi
       await handleConfigureCommand(interaction, deps);
       return;
     }
-    // Every other command requires a configured server; later phases dispatch them past this gate.
-    await passesAccessGate(interaction, deps);
+    const handler = GATED_COMMANDS[interaction.commandName];
+    if (!handler || !(await passesAccessGate(interaction, deps))) return;
+    await handler(interaction, deps);
     return;
   }
 

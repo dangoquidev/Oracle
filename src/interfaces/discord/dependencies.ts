@@ -5,8 +5,11 @@ import type { GetConfigurationDraft } from '../../application/use-cases/get-conf
 import type { GetPredictionJourney } from '../../application/use-cases/get-prediction-journey.js';
 import type { HandleResourceDeleted } from '../../application/use-cases/handle-resource-deleted.js';
 import type { LeaveGuild } from '../../application/use-cases/leave-guild.js';
+import type { ListLockTargets } from '../../application/use-cases/list-lock-targets.js';
+import type { ListWeekMatches } from '../../application/use-cases/list-week-matches.js';
 import type { ReconcileGuilds } from '../../application/use-cases/reconcile-guilds.js';
 import type { RegisterGuild } from '../../application/use-cases/register-guild.js';
+import type { SetLockOverride } from '../../application/use-cases/set-lock-override.js';
 import type { SubmitPrediction } from '../../application/use-cases/submit-prediction.js';
 import type { Competition } from '../../domain/competition/competition.js';
 import type { GuildId } from '../../domain/shared/ids.js';
@@ -29,5 +32,8 @@ export interface DiscordDependencies {
     readonly leaveGuild: LeaveGuild;
     readonly handleResourceDeleted: HandleResourceDeleted;
     readonly reconcileGuilds: ReconcileGuilds;
+    readonly listWeekMatches: ListWeekMatches;
+    readonly listLockTargets: ListLockTargets;
+    readonly setLockOverride: SetLockOverride;
   };
 }

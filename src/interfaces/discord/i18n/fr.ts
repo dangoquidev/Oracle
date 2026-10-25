@@ -38,7 +38,47 @@ export const fr = {
     empty: 'Aucun match prévu.',
     format: (bestOf: number) => `Bo${bestOf}`,
   },
+  votes: {
+    split: (team1: string, team1Percent: number, team2Percent: number, team2: string) =>
+      `${team1} **${team1Percent} %** · **${team2Percent} %** ${team2}`,
+    count: (total: number) => (total > 1 ? `${total} votes` : `${total} vote`),
+    topScore: (label: string, percent: number) => `score le plus joué : ${label} (${percent} %)`,
+    none: 'aucun vote',
+  },
+  reminder: {
+    content: (role: string, when: string) => `${role} ⏰ Les votes ferment ${when}, pensez à vos pronos !`,
+    title: (competition: string, week: string) => `${competition} · ${week}`,
+  },
+  reveal: {
+    title: (competition: string, week: string) => `🔒 Votes fermés · ${competition} · ${week}`,
+    description: 'Voici ce que le serveur a pronostiqué :',
+  },
+  matches: {
+    title: (competition: string, week: string) => `${competition} · ${week}`,
+    empty: 'Aucune semaine trouvée pour cette période.',
+    competitionNotEnabled: 'Cette compétition n’est pas activée sur ce serveur.',
+    state: {
+      open: (closes: string) => `🟢 votes ouverts, fermeture ${closes}`,
+      locked: '🔒 votes fermés',
+      'awaiting-opponents': '⏳ équipes à déterminer',
+      closed: '🏁 terminé',
+    },
+  },
+  admin: {
+    opened: (count: number, target: string) =>
+      `🔓 Votes rouverts pour ${count} match${count > 1 ? 's' : ''} (${target}), jusqu’au début de chaque match.`,
+    closed: (count: number, target: string) =>
+      `🔒 Votes fermés pour ${count} match${count > 1 ? 's' : ''} (${target}).`,
+    missingTarget: 'Choisis une semaine ou un match.',
+    bothTargets: 'Choisis soit une semaine, soit un match, pas les deux.',
+    errors: {
+      'target-not-found': 'Semaine ou match introuvable. Utilise les suggestions de la commande.',
+      'no-open-match': 'Aucun match à venir dans cette sélection.',
+      'guild-not-active': "Le bot n'est pas actif sur ce serveur.",
+    },
+  },
   journey: {
+    votes: 'Votes du serveur',
     title: (index: number, total: number) => `Match ${index}/${total}`,
     when: 'Date',
     format: 'Format',
@@ -161,6 +201,19 @@ export const fr = {
   },
   commands: {
     configure: { description: 'Configurer PronoBot sur ce serveur (assistant étape par étape)' },
+    matches: {
+      description: 'Voir les matchs de la semaine',
+      week: 'Quelle semaine',
+      competition: 'Filtrer sur une compétition',
+      weekChoices: { current: 'Actuelle', previous: 'Précédente', next: 'Suivante' },
+    },
+    admin: {
+      description: 'Commandes d’administration de PronoBot',
+      open: 'Rouvrir les votes d’une semaine ou d’un match',
+      close: 'Fermer les votes d’une semaine ou d’un match',
+      week: 'Semaine concernée',
+      match: 'Match concerné',
+    },
   },
 };
 

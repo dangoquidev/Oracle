@@ -23,6 +23,7 @@ const item = (id: number, overrides: Partial<JourneyItem> = {}): JourneyItem => 
     state: 'open',
     choices: choicesFor(source.bestOf),
     current: null,
+    distribution: null,
     ...overrides,
   };
 };
@@ -105,6 +106,18 @@ describe('prediction journey view', () => {
     ).toBe(true);
     expect(view.embeds[0]?.toJSON().description).toContain('Votes fermés');
     expect(view.embeds[0]?.toJSON().description).toContain('note');
+  });
+
+  it('shows how the server voted once votes are closed', () => {
+    const locked = item(1, {
+      state: 'locked',
+      distribution: { total: 4, team1Percent: 75, team2Percent: 25, topScore: null },
+    });
+    const fields = renderJourneyStep(journey([locked]), 0, 'fr', false).embeds[0]?.toJSON().fields ?? [];
+    expect(fields.at(-1)).toEqual({
+      name: 'Votes du serveur',
+      value: 'G2 **75 %** · **25 %** FNC · 4 votes',
+    });
   });
 
   it('falls back to the summary for an out of range index', () => {

@@ -40,7 +40,48 @@ export const en: Messages = {
     empty: 'No match scheduled.',
     format: (bestOf: number) => `Bo${bestOf}`,
   },
+  votes: {
+    split: (team1: string, team1Percent: number, team2Percent: number, team2: string) =>
+      `${team1} **${team1Percent}%** · **${team2Percent}%** ${team2}`,
+    count: (total: number) => (total > 1 ? `${total} votes` : `${total} vote`),
+    topScore: (label: string, percent: number) => `most picked score: ${label} (${percent}%)`,
+    none: 'no votes',
+  },
+  reminder: {
+    content: (role: string, when: string) =>
+      `${role} ⏰ Voting closes ${when}, don't forget your predictions!`,
+    title: (competition: string, week: string) => `${competition} · ${week}`,
+  },
+  reveal: {
+    title: (competition: string, week: string) => `🔒 Voting closed · ${competition} · ${week}`,
+    description: 'Here is what the server predicted:',
+  },
+  matches: {
+    title: (competition: string, week: string) => `${competition} · ${week}`,
+    empty: 'No week found for that period.',
+    competitionNotEnabled: 'This competition is not enabled on this server.',
+    state: {
+      open: (closes: string) => `🟢 voting open, closes ${closes}`,
+      locked: '🔒 voting closed',
+      'awaiting-opponents': '⏳ teams to be decided',
+      closed: '🏁 over',
+    },
+  },
+  admin: {
+    opened: (count: number, target: string) =>
+      `🔓 Voting reopened for ${count} match${count > 1 ? 'es' : ''} (${target}), until each match starts.`,
+    closed: (count: number, target: string) =>
+      `🔒 Voting closed for ${count} match${count > 1 ? 'es' : ''} (${target}).`,
+    missingTarget: 'Pick a week or a match.',
+    bothTargets: 'Pick either a week or a match, not both.',
+    errors: {
+      'target-not-found': 'Week or match not found. Use the command suggestions.',
+      'no-open-match': 'No upcoming match in that selection.',
+      'guild-not-active': 'The bot is not active on this server.',
+    },
+  },
   journey: {
+    votes: 'Server votes',
     title: (index: number, total: number) => `Match ${index}/${total}`,
     when: 'Date',
     format: 'Format',
@@ -160,5 +201,18 @@ export const en: Messages = {
   },
   commands: {
     configure: { description: 'Set up PronoBot on this server (step-by-step wizard)' },
+    matches: {
+      description: "See the week's matches",
+      week: 'Which week',
+      competition: 'Only this competition',
+      weekChoices: { current: 'Current', previous: 'Previous', next: 'Next' },
+    },
+    admin: {
+      description: 'PronoBot administration commands',
+      open: 'Reopen voting for a week or a match',
+      close: 'Close voting for a week or a match',
+      week: 'Week',
+      match: 'Match',
+    },
   },
 };

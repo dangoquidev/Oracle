@@ -14,6 +14,7 @@ import { encodePrediction } from '../components/custom-id.js';
 import { BRAND_COLOR, type MessageView } from '../components/payload.js';
 import { messages, type Messages } from '../i18n/index.js';
 import { choiceLabel, fullDateTime, matchup, relative, truncate } from '../embeds/formatting.js';
+import { voteLine } from '../embeds/vote-lines.js';
 
 const BUTTONS_PER_ROW = 3;
 
@@ -71,6 +72,8 @@ export function renderJourneyStep(
       },
     )
     .setFooter({ text: t.common.dataCredit });
+  if (item.distribution)
+    embed.addFields({ name: t.journey.votes, value: voteLine(item.match, item.distribution, t) });
 
   return {
     embeds: [embed],
