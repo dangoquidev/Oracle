@@ -26,7 +26,8 @@ import type { PredictionWeek } from '../../domain/schedule/prediction-week.js';
 import type { CompetitionId, MatchId, TeamId, WeekId } from '../../domain/shared/ids.js';
 import type { Database } from '../db/client.js';
 import { competitions, matches, seasons, teams, tournaments, weeks } from '../db/schema.js';
-import { chunk, excludedColumns } from './sql-helpers.js';
+import { chunk } from '../support/chunk.js';
+import { excludedColumns } from './sql-helpers.js';
 
 type MatchRow = typeof matches.$inferSelect;
 type TeamRow = typeof teams.$inferSelect;
