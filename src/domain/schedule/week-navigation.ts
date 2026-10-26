@@ -19,3 +19,9 @@ export function pickWeek(
   if (current === -1) current = ordered.length - 1;
   return ordered[current + offset] ?? null;
 }
+
+/** The week being played or the last one played: the one whose points are being earned. */
+export function latestStartedWeek(weeks: readonly PredictionWeek[], now: Date): PredictionWeek | null {
+  const started = weeks.filter((week) => week.startsAt.getTime() <= now.getTime());
+  return started.toSorted((a, b) => b.startsAt.getTime() - a.startsAt.getTime())[0] ?? null;
+}

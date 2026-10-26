@@ -8,3 +8,4 @@ export type CompetitionId = string;
 export type MatchId = number;
 export type WeekId = number;
 export type TeamId = number;
+export type SeasonId = number;

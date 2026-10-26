@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PredictionWeek } from './prediction-week.js';
-import { pickWeek } from './week-navigation.js';
+import { latestStartedWeek, pickWeek } from './week-navigation.js';
 
 const week = (id: number, start: string, end: string): PredictionWeek => ({
   id,
@@ -39,5 +39,16 @@ describe('pickWeek', () => {
   it('handles the first week and an empty calendar', () => {
     expect(pickWeek(weeks, new Date('2026-07-01T00:00:00Z'), -1)).toBeNull();
     expect(pickWeek([], new Date(), 0)).toBeNull();
+  });
+});
+
+describe('latestStartedWeek', () => {
+  it('picks the week being played, then keeps the last one played until the next starts', () => {
+    expect(latestStartedWeek(weeks, new Date('2026-08-08T12:00:00Z'))?.id).toBe(2);
+    expect(latestStartedWeek(weeks, new Date('2026-08-12T12:00:00Z'))?.id).toBe(2);
+  });
+
+  it('has no week before the first one starts', () => {
+    expect(latestStartedWeek(weeks, new Date('2026-07-01T00:00:00Z'))).toBeNull();
   });
 });
