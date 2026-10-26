@@ -6,9 +6,10 @@ Pas d'argent ni de monnaie virtuelle : des points et des classements. Compétiti
 Les données (calendrier, équipes, logos, résultats) viennent de l'API Cargo de [Leaguepedia](https://lol.fandom.com),
 mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API directement.
 
-> État : **Phase 5**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
+> État : **Phase 6**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
 > rappels et répartition des votes au lock, `/matches`, résultats et calcul des points, classements (`/leaderboard`),
-> `/mypronos`, récaps automatiques, réglages un par un (`/config`) et `/admin open|close|result|cancel|recalc|ban|unban|sync`.
+> `/mypronos`, récaps automatiques, réglages un par un (`/config`), `/admin open|close|result|cancel|recalc|ban|unban|sync`
+> et statistiques des joueurs (`/stats`).
 > Les autres commandes admin, les stats et les backups arrivent dans les phases suivantes.
 
 ## Sommaire
@@ -63,6 +64,9 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
     pronos sont conservés, donc `/admin unban` lui rend ses points.
 16. `/admin sync` lance tout de suite une synchro Leaguepedia, sans attendre la suivante. Le calendrier étant partagé par
     tous les serveurs, une seule synchro manuelle est acceptée toutes les 10 minutes.
+17. `/stats [joueur]` montre le bilan d'un joueur sur le serveur, toutes compétitions confondues : rang all time et sur le
+    split/tournoi en cours, points, part de bons vainqueurs, scores exacts sur les Bo3/Bo5, série de bons vainqueurs en
+    cours et record, meilleure semaine, équipe la plus souvent pronostiquée gagnante (et sa réussite), détail par compétition.
 
 ### Commandes
 
@@ -79,6 +83,7 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/matches [semaine] [compétition]`              | Tous             | Matchs de la semaine actuelle, précédente ou suivante, avec l'état des votes |
 | `/mypronos [semaine] [compétition]`             | Tous             | Tes pronos de la semaine, les résultats, tes points et ton total             |
 | `/leaderboard [période] [compétition] [saison]` | Tous             | Classement de la semaine, du split/tournoi (par défaut) ou all time          |
+| `/stats [joueur]`                               | Tous             | Bilan d'un joueur (le tien par défaut) : rangs, réussite, séries, favoris    |
 | `/admin open semaine:… \| match:…`              | Gérer le serveur | Rouvre les votes jusqu'au début de chaque match                              |
 | `/admin close semaine:… \| match:…`             | Gérer le serveur | Ferme les votes immédiatement                                                |
 | `/admin result match:… résultat:…`              | Gérer le serveur | Force ou corrige un résultat (ou revient à celui de Leaguepedia)             |
@@ -88,8 +93,8 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/admin unban joueur:…`                         | Gérer le serveur | Réintègre un joueur exclu, avec tous ses points                              |
 | `/admin sync`                                   | Gérer le serveur | Force une synchro Leaguepedia (une toutes les 10 minutes au plus)            |
 
-Les réponses de `/matches`, `/mypronos`, `/config` et `/admin` sont éphémères ; `/leaderboard` répond dans le salon, sans mentionner
-personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
+Les réponses de `/matches`, `/mypronos`, `/config` et `/admin` sont éphémères ; `/leaderboard` et `/stats` répondent dans le salon, sans
+mentionner personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
 propose en autocomplétion les splits et tournois passés. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
 valeurs en autocomplétion : matchs à venir pour `open`/`close`, matchs récents pour `result`/`cancel`, et pour `résultat`, les
 scores possibles selon le format du match.
