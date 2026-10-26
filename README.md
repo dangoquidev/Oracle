@@ -6,9 +6,10 @@ Pas d'argent ni de monnaie virtuelle : des points et des classements. Compétiti
 Les données (calendrier, équipes, logos, résultats) viennent de l'API Cargo de [Leaguepedia](https://lol.fandom.com),
 mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API directement.
 
-> État : **Phase 3**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
-> rappels et répartition des votes au lock, `/matches`, résultats et calcul des points, `/admin open|close|result|cancel|recalc`.
-> Les classements, récaps, autres commandes admin, stats et backups arrivent dans les phases suivantes.
+> État : **Phase 4**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
+> rappels et répartition des votes au lock, `/matches`, résultats et calcul des points, `/admin open|close|result|cancel|recalc`,
+> classements (`/leaderboard`), `/mypronos` et récaps automatiques.
+> Les autres commandes admin, les stats et les backups arrivent dans les phases suivantes.
 
 ## Sommaire
 
@@ -47,21 +48,32 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
    tourner autant de fois que nécessaire sans fausser les points.
 10. Un admin peut corriger un résultat ou annuler un match pour son serveur. Un match annulé n'est ni gagnant ni perdant :
     ses pronos sont ignorés.
-11. Si le rôle ou le salon configuré est supprimé, le bot se met en pause et prévient les admins.
+11. Une fois tous les résultats d'une journée ou d'une semaine connus (selon le réglage « Récap »), le bot publie un récap
+    par compétition : résultats, part de bons pronos du serveur sur chaque match, meilleurs pronostiqueurs de la période et
+    top 5 du split/tournoi. Quand un split ou un tournoi est terminé, il publie le classement final. Les récaps ne mentionnent
+    personne et ne concernent que les semaines publiées sur le serveur.
+12. Les classements sont calculés à la lecture depuis les pronos notés : semaine, split/tournoi (une « saison » Leaguepedia :
+    saison régulière + playoffs, ou Play-In + Main Event) et all time. Ils repartent de zéro à chaque split, les splits passés
+    restent consultables. Un joueur arrivé en cours de route part de 0 ; les égalités restent ex aequo (1, 1, 3).
+13. Si le rôle ou le salon configuré est supprimé, le bot se met en pause et prévient les admins.
 
 ### Commandes
 
-| Commande                            | Qui              | Effet                                                                        |
-| ----------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
-| `/configure`                        | Gérer le serveur | Assistant de configuration (obligatoire avant toute utilisation)             |
-| `/matches [semaine] [compétition]`  | Tous             | Matchs de la semaine actuelle, précédente ou suivante, avec l'état des votes |
-| `/admin open semaine:… \| match:…`  | Gérer le serveur | Rouvre les votes jusqu'au début de chaque match                              |
-| `/admin close semaine:… \| match:…` | Gérer le serveur | Ferme les votes immédiatement                                                |
-| `/admin result match:… résultat:…`  | Gérer le serveur | Force ou corrige un résultat (ou revient à celui de Leaguepedia)             |
-| `/admin cancel match:… [restaurer]` | Gérer le serveur | Annule un match, ses pronos sont ignorés (`restaurer` annule l'annulation)   |
-| `/admin recalc`                     | Gérer le serveur | Recalcule tous les points du serveur                                         |
+| Commande                                        | Qui              | Effet                                                                        |
+| ----------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `/configure`                                    | Gérer le serveur | Assistant de configuration (obligatoire avant toute utilisation)             |
+| `/matches [semaine] [compétition]`              | Tous             | Matchs de la semaine actuelle, précédente ou suivante, avec l'état des votes |
+| `/mypronos [semaine] [compétition]`             | Tous             | Tes pronos de la semaine, les résultats, tes points et ton total             |
+| `/leaderboard [période] [compétition] [saison]` | Tous             | Classement de la semaine, du split/tournoi (par défaut) ou all time          |
+| `/admin open semaine:… \| match:…`              | Gérer le serveur | Rouvre les votes jusqu'au début de chaque match                              |
+| `/admin close semaine:… \| match:…`             | Gérer le serveur | Ferme les votes immédiatement                                                |
+| `/admin result match:… résultat:…`              | Gérer le serveur | Force ou corrige un résultat (ou revient à celui de Leaguepedia)             |
+| `/admin cancel match:… [restaurer]`             | Gérer le serveur | Annule un match, ses pronos sont ignorés (`restaurer` annule l'annulation)   |
+| `/admin recalc`                                 | Gérer le serveur | Recalcule tous les points du serveur                                         |
 
-Les réponses de `/matches` et `/admin` sont éphémères. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
+Les réponses de `/matches`, `/mypronos` et `/admin` sont éphémères ; `/leaderboard` répond dans le salon, sans mentionner
+personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
+propose en autocomplétion les splits et tournois passés. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
 valeurs en autocomplétion : matchs à venir pour `open`/`close`, matchs récents pour `result`/`cancel`, et pour `résultat`, les
 scores possibles selon le format du match.
 
@@ -157,9 +169,10 @@ docker compose logs -f bot
 
 - Le conteneur `bot` expose un healthcheck (`GET /health` : base joignable et connexion Discord prête).
 - Les jobs planifiés sont persistés par pg-boss dans le schéma `pgboss` et survivent aux redémarrages :
-  - `schedule-sync` (toutes les 6 h) : sync Leaguepedia, calcul des points, emojis des logos, mise à jour des annonces ;
+  - `schedule-sync` (toutes les 6 h) : sync Leaguepedia, calcul des points, récaps dus, emojis des logos, mise à jour des annonces ;
   - `guild-tick` (chaque minute) : publications dues, rappels avant le lock, révélation des votes après le lock ;
-  - `results-poll` (toutes les 5 min) : uniquement pendant une fenêtre de match, récupère les résultats et calcule les points.
+  - `results-poll` (toutes les 5 min) : uniquement pendant une fenêtre de match, récupère les résultats et calcule les points ;
+    publie ensuite les récaps dus (y compris après une correction d'admin).
 - Mise à jour : `git pull && docker compose up -d --build`.
 
 ## Architecture
@@ -168,7 +181,7 @@ Clean architecture / hexagonale. Les dépendances pointent vers le domaine, et d
 
 ```
 src/
-├─ domain/          Règles métier pures : matchs, choix de prono, lock, semaines, créneaux, réglages serveur
+├─ domain/          Règles métier pures : matchs, choix de prono, lock, points, classements, récaps, réglages serveur
 ├─ application/     Use cases + ports (interfaces) : MatchDataProvider, repositories, GuildMessenger…
 ├─ infrastructure/  Adapters : Drizzle/PostgreSQL, client Leaguepedia, pg-boss, pino, healthcheck
 ├─ interfaces/
@@ -182,6 +195,8 @@ src/
 - **Flux Discord sans état serveur** : les `customId` portent tout le contexte (publication, match, choix), ce qui permet
   à un parcours de survivre à un redémarrage. Seul le brouillon de `/configure` vit en mémoire (15 min), puisque rien
   n'est enregistré avant validation.
+- **Classements calculés à la lecture** : agrégats SQL sur les pronos notés, rien à resynchroniser après une correction.
+- **Notifications exactement une fois** : rappels, révélations et récaps passent par un journal d'envoi (`dispatch_log`).
 - **Multi-serveur** : tout est scopé par `guild_id`, sans aucun id de serveur en dur.
 
 ## Ajouter une compétition
