@@ -9,7 +9,7 @@ export function startHealthServer(port: number, checks: Record<string, HealthChe
       response.writeHead(404).end();
       return;
     }
-    void evaluate(checks).then((results) => {
+    void evaluateChecks(checks).then((results) => {
       const healthy = Object.values(results).every(Boolean);
       response
         .writeHead(healthy ? 200 : 503, { 'content-type': 'application/json' })
@@ -24,7 +24,7 @@ export function startHealthServer(port: number, checks: Record<string, HealthChe
   });
 }
 
-async function evaluate(checks: Record<string, HealthCheck>): Promise<Record<string, boolean>> {
+export async function evaluateChecks(checks: Record<string, HealthCheck>): Promise<Record<string, boolean>> {
   const entries = await Promise.all(
     Object.entries(checks).map(async ([name, check]) => {
       try {

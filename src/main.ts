@@ -34,7 +34,11 @@ import { COMPETITIONS } from './config/competitions.js';
 import { loadEnv } from './config/env.js';
 import { SystemClock } from './infrastructure/clock/system-clock.js';
 import { connectDatabase, pingDatabase, runMigrations } from './infrastructure/db/client.js';
+import { AlertingLogger } from './infrastructure/alerts/alerting-logger.js';
+import { AlertDispatcher } from './infrastructure/alerts/alerts.js';
+import { DiscordWebhookSink } from './infrastructure/alerts/discord-webhook-sink.js';
 import { startHealthServer } from './infrastructure/health/health-server.js';
+import { HealthWatchdog } from './infrastructure/health/health-watchdog.js';
 import { LeaguepediaClient } from './infrastructure/leaguepedia/leaguepedia-client.js';
 import { LeaguepediaProvider } from './infrastructure/leaguepedia/leaguepedia-provider.js';
 import { createLogger } from './infrastructure/logger/pino-logger.js';
@@ -59,14 +63,39 @@ import { WizardSessionStore } from './interfaces/discord/flows/wizard-session-st
 import { createInteractionRouter } from './interfaces/discord/interaction-router.js';
 
 const MIGRATIONS_FOLDER = fileURLToPath(new URL('../drizzle', import.meta.url));
-const USER_AGENT_VERSION = '0.1.0';
+const APP_VERSION = '1.0.0';
 /** /admin sync hits Leaguepedia for every server: at most one manual run per window. */
 const MANUAL_SYNC_COOLDOWN_SECONDS = 10 * 60;
 
 async function main(): Promise<void> {
   const env = loadEnv();
-  const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === 'development');
+  const baseLogger = createLogger(env.LOG_LEVEL, env.NODE_ENV === 'development');
   const clock = new SystemClock();
+
+  // ── Operator alerts ───────────────────────────────────────────────────────
+  // Every error log also goes to the alert webhook, when one is configured.
+  const alerts = env.ALERT_WEBHOOK_URL
+    ? new AlertDispatcher(
+        new DiscordWebhookSink(
+          env.ALERT_WEBHOOK_URL,
+          env.ALERT_MENTION_USER_ID ?? null,
+          baseLogger.child({ module: 'alerts' }),
+        ),
+        clock,
+      )
+    : null;
+  const logger = alerts ? new AlertingLogger(baseLogger, alerts) : baseLogger;
+  const exit = async (code: number) => {
+    await alerts?.flush();
+    process.exit(code);
+  };
+  process.on('unhandledRejection', (reason) => {
+    logger.error({ err: reason }, 'Unhandled promise rejection');
+  });
+  process.on('uncaughtException', (error) => {
+    logger.error({ err: error }, 'Uncaught exception');
+    void exit(1);
+  });
 
   // ── Persistence ───────────────────────────────────────────────────────────
   const database = connectDatabase(env.DATABASE_URL);
@@ -87,7 +116,7 @@ async function main(): Promise<void> {
   const leaguepedia = new LeaguepediaProvider(
     new LeaguepediaClient({
       credentials: { username: env.LEAGUEPEDIA_BOT_USER, password: env.LEAGUEPEDIA_BOT_PASSWORD },
-      userAgent: `PronoBot/${USER_AGENT_VERSION} (${env.LEAGUEPEDIA_CONTACT})`,
+      userAgent: `PronoBot/${APP_VERSION} (${env.LEAGUEPEDIA_CONTACT})`,
       minIntervalMs: env.LEAGUEPEDIA_MIN_INTERVAL_MS,
       logger: logger.child({ module: 'leaguepedia' }),
     }),
@@ -264,25 +293,35 @@ async function main(): Promise<void> {
       await reconcileOnReady(ready, deps);
       await scheduler.start(tasks);
       await scheduler.trigger('schedule-sync');
+      // Throttled like any alert, so a crash loop shows up as one message with a count.
+      alerts?.dispatch('startup', {
+        level: 'info',
+        title: 'PronoBot started',
+        details: { version: APP_VERSION, servers: String(ready.guilds.cache.size) },
+      });
     })().catch((error: unknown) => {
       logger.error({ err: error }, 'Startup failed');
-      process.exit(1);
+      void exit(1);
     });
   });
 
-  const health = await startHealthServer(env.HEALTH_PORT, {
+  const healthChecks = {
     database: () => pingDatabase(database.pool),
     discord: () => client.isReady(),
-  });
+  };
+  const health = await startHealthServer(env.HEALTH_PORT, healthChecks);
+  const watchdog = alerts ? new HealthWatchdog(healthChecks, alerts, clock) : null;
+  watchdog?.start();
 
   const shutdown = (signal: string) => {
     logger.info({ signal }, 'Shutting down');
     void (async () => {
+      watchdog?.stop();
       health.close();
       await scheduler.stop().catch(() => undefined);
       await client.destroy();
       await database.close();
-      process.exit(0);
+      await exit(0);
     })();
   };
   process.once('SIGTERM', () => {
@@ -292,7 +331,13 @@ async function main(): Promise<void> {
     shutdown('SIGINT');
   });
 
-  await client.login(env.DISCORD_TOKEN);
+  try {
+    await client.login(env.DISCORD_TOKEN);
+  } catch (error) {
+    // A revoked token lands here: worth an alert, not just a line on stderr.
+    logger.error({ err: error }, 'Discord login failed');
+    await exit(1);
+  }
 }
 
 main().catch((error: unknown) => {

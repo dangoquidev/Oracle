@@ -25,4 +25,17 @@ describe('loadEnv', () => {
       /DISCORD_TOKEN[\s\S]*DATABASE_URL/,
     );
   });
+
+  it('keeps alerts optional and only accepts https webhooks', () => {
+    expect(loadEnv({ ...valid, ALERT_WEBHOOK_URL: '', ALERT_MENTION_USER_ID: '' })).toMatchObject({
+      ALERT_WEBHOOK_URL: undefined,
+      ALERT_MENTION_USER_ID: undefined,
+    });
+    const url = 'https://discord.com/api/webhooks/1/abc';
+    expect(loadEnv({ ...valid, ALERT_WEBHOOK_URL: url }).ALERT_WEBHOOK_URL).toBe(url);
+    expect(() => loadEnv({ ...valid, ALERT_WEBHOOK_URL: 'http://example.com/hook' })).toThrow(
+      /ALERT_WEBHOOK_URL/,
+    );
+    expect(() => loadEnv({ ...valid, ALERT_MENTION_USER_ID: '@me' })).toThrow(/ALERT_MENTION_USER_ID/);
+  });
 });
