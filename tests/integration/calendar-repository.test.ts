@@ -128,6 +128,38 @@ describe('DrizzleCalendarRepository', () => {
     expect(await calendar.findWeekViews([])).toEqual([]);
   });
 
+  it('prefixes weeks of a later stage with the stage name', async () => {
+    const PLAYOFFS = 'LEC/2026 Season/Summer Playoffs';
+    const base = lecSnapshot([snapshotMatch({ ref: 'regular' })]);
+    await calendar.applySnapshot({
+      ...base,
+      tournaments: [
+        ...base.tournaments,
+        {
+          ref: PLAYOFFS,
+          seasonKey: '2026 Summer',
+          name: 'LEC 2026 Summer Playoffs',
+          startsOn: null,
+          endsOn: null,
+        },
+      ],
+      weeks: [...base.weeks, { tournamentRef: PLAYOFFS, name: 'Week 1', order: 1 }],
+      matches: [
+        ...base.matches,
+        snapshotMatch({
+          ref: 'final',
+          tournamentRef: PLAYOFFS,
+          scheduledAt: new Date('2026-08-29T16:00:00Z'),
+        }),
+      ],
+    });
+
+    const weeks = await calendar.findWeeksBetween(['lec'], new Date('2026-07-01'), new Date('2026-09-01'));
+    expect(weeks.map((week) => week.name)).toEqual(['Week 1', 'Playoffs · Week 1']);
+    const views = await calendar.findWeekViews(weeks.map((week) => week.id));
+    expect(views.map((view) => view.week.name)).toEqual(['Week 1', 'Playoffs · Week 1']);
+  });
+
   it('finds a match by id', async () => {
     await calendar.applySnapshot(twoWeeks());
     const [week1] = await calendar.findWeeksBetween(['lec'], new Date('2026-07-01'), new Date('2026-09-01'));

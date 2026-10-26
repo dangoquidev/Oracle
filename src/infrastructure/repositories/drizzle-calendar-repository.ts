@@ -24,7 +24,7 @@ import type { MatchView, TeamView, WeekView } from '../../application/read-model
 import type { BestOf } from '../../domain/match/best-of.js';
 import type { Match, MatchResult } from '../../domain/match/match.js';
 import type { Side } from '../../domain/match/series-score.js';
-import type { PredictionWeek } from '../../domain/schedule/prediction-week.js';
+import { stageOf, weekLabel, type PredictionWeek } from '../../domain/schedule/prediction-week.js';
 import type { CompetitionId, MatchId, TeamId, WeekId } from '../../domain/shared/ids.js';
 import type { Database } from '../db/client.js';
 import { competitions, matches, seasons, teams, tournaments, weeks } from '../db/schema.js';
@@ -186,7 +186,7 @@ export class DrizzleCalendarRepository implements CalendarRepository {
     if (competitionIds.length === 0) return [];
     const rows = await this.weekQuery()
       .where(inArray(tournaments.competitionId, [...competitionIds]))
-      .groupBy(weeks.id, competitions.id)
+      .groupBy(weeks.id, tournaments.id, seasons.id, competitions.id)
       .having(and(gte(max(matches.scheduledAt), from), lt(min(matches.scheduledAt), to)))
       .orderBy(asc(min(matches.scheduledAt)));
     return rows.map(toWeek);
@@ -196,7 +196,7 @@ export class DrizzleCalendarRepository implements CalendarRepository {
     if (weekIds.length === 0) return [];
     const weekRows = await this.weekQuery()
       .where(inArray(weeks.id, [...weekIds]))
-      .groupBy(weeks.id, competitions.id)
+      .groupBy(weeks.id, tournaments.id, seasons.id, competitions.id)
       .orderBy(asc(min(matches.scheduledAt)));
 
     const team1 = aliasedTable(teams, 'team1');
@@ -316,6 +316,8 @@ export class DrizzleCalendarRepository implements CalendarRepository {
       .select({
         id: weeks.id,
         name: weeks.name,
+        tournamentName: tournaments.name,
+        seasonName: seasons.name,
         competitionId: competitions.id,
         competitionName: competitions.name,
         startsAt: min(matches.scheduledAt),
@@ -323,6 +325,7 @@ export class DrizzleCalendarRepository implements CalendarRepository {
       })
       .from(weeks)
       .innerJoin(tournaments, eq(tournaments.id, weeks.tournamentId))
+      .innerJoin(seasons, eq(seasons.id, tournaments.seasonId))
       .innerJoin(competitions, eq(competitions.id, tournaments.competitionId))
       .innerJoin(matches, eq(matches.weekId, weeks.id))
       .$dynamic();
@@ -342,6 +345,8 @@ function required<V>(map: ReadonlyMap<string, V>, key: string, what: string): V 
 function toWeek(row: {
   id: number;
   name: string;
+  tournamentName: string;
+  seasonName: string;
   competitionId: string;
   startsAt: Date | null;
   endsAt: Date | null;
@@ -350,7 +355,7 @@ function toWeek(row: {
   return {
     id: row.id,
     competitionId: row.competitionId,
-    name: row.name,
+    name: weekLabel(row.name, stageOf(row.tournamentName, row.seasonName)),
     startsAt: row.startsAt,
     endsAt: row.endsAt,
   };
