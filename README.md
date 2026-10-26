@@ -6,9 +6,9 @@ Pas d'argent ni de monnaie virtuelle : des points et des classements. Compétiti
 Les données (calendrier, équipes, logos, résultats) viennent de l'API Cargo de [Leaguepedia](https://lol.fandom.com),
 mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API directement.
 
-> État : **Phase 4**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
-> rappels et répartition des votes au lock, `/matches`, résultats et calcul des points, `/admin open|close|result|cancel|recalc`,
-> classements (`/leaderboard`), `/mypronos` et récaps automatiques.
+> État : **Phase 5**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
+> rappels et répartition des votes au lock, `/matches`, résultats et calcul des points, classements (`/leaderboard`),
+> `/mypronos`, récaps automatiques, réglages un par un (`/config`) et `/admin open|close|result|cancel|recalc|ban|unban|sync`.
 > Les autres commandes admin, les stats et les backups arrivent dans les phases suivantes.
 
 ## Sommaire
@@ -55,13 +55,27 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 12. Les classements sont calculés à la lecture depuis les pronos notés : semaine, split/tournoi (une « saison » Leaguepedia :
     saison régulière + playoffs, ou Play-In + Main Event) et all time. Ils repartent de zéro à chaque split, les splits passés
     restent consultables. Un joueur arrivé en cours de route part de 0 ; les égalités restent ex aequo (1, 1, 3).
-13. Si le rôle ou le salon configuré est supprimé, le bot se met en pause et prévient les admins.
+13. Si le rôle ou le salon configuré est supprimé, le bot se met en pause et prévient les admins. Il repart dès qu'un admin
+    choisit un nouveau rôle ou salon (`/config role`, `/config channel` ou `/configure`).
+14. Chaque réglage se modifie aussi seul avec `/config <réglage>`, avec les mêmes vérifications que l'assistant (valeurs
+    valides, permissions du bot dans le salon). Une sous-commande lancée sans option affiche la valeur actuelle.
+15. Un admin peut exclure un joueur (`/admin ban`) : il ne peut plus voter et disparaît des classements et des récaps. Ses
+    pronos sont conservés, donc `/admin unban` lui rend ses points.
+16. `/admin sync` lance tout de suite une synchro Leaguepedia, sans attendre la suivante. Le calendrier étant partagé par
+    tous les serveurs, une seule synchro manuelle est acceptée toutes les 10 minutes.
 
 ### Commandes
 
 | Commande                                        | Qui              | Effet                                                                        |
 | ----------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
 | `/configure`                                    | Gérer le serveur | Assistant de configuration (obligatoire avant toute utilisation)             |
+| `/config show`                                  | Gérer le serveur | Affiche tous les réglages et l'état du bot (actif, en pause et pourquoi)     |
+| `/config channel\|role\|timezone\|language`     | Gérer le serveur | Change le salon, le rôle, le fuseau horaire (autocomplété) ou la langue      |
+| `/config lock [mode] [délai]`                   | Gérer le serveur | Fermeture des votes : par journée ou par match, et combien de temps avant    |
+| `/config reminders [actifs] [délai]`            | Gérer le serveur | Active, désactive ou décale les rappels                                      |
+| `/config recap fréquence:…`                     | Gérer le serveur | Récap en fin de journée ou en fin de semaine                                 |
+| `/config publish [jour] [heure] [minute]`       | Gérer le serveur | Jour et heure de publication des matchs de la semaine                        |
+| `/config competitions compétition:… active:…`   | Gérer le serveur | Active ou désactive une compétition (au moins une doit rester active)        |
 | `/matches [semaine] [compétition]`              | Tous             | Matchs de la semaine actuelle, précédente ou suivante, avec l'état des votes |
 | `/mypronos [semaine] [compétition]`             | Tous             | Tes pronos de la semaine, les résultats, tes points et ton total             |
 | `/leaderboard [période] [compétition] [saison]` | Tous             | Classement de la semaine, du split/tournoi (par défaut) ou all time          |
@@ -70,8 +84,11 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/admin result match:… résultat:…`              | Gérer le serveur | Force ou corrige un résultat (ou revient à celui de Leaguepedia)             |
 | `/admin cancel match:… [restaurer]`             | Gérer le serveur | Annule un match, ses pronos sont ignorés (`restaurer` annule l'annulation)   |
 | `/admin recalc`                                 | Gérer le serveur | Recalcule tous les points du serveur                                         |
+| `/admin ban joueur:… [raison]`                  | Gérer le serveur | Exclut un joueur des pronos, des classements et des récaps                   |
+| `/admin unban joueur:…`                         | Gérer le serveur | Réintègre un joueur exclu, avec tous ses points                              |
+| `/admin sync`                                   | Gérer le serveur | Force une synchro Leaguepedia (une toutes les 10 minutes au plus)            |
 
-Les réponses de `/matches`, `/mypronos` et `/admin` sont éphémères ; `/leaderboard` répond dans le salon, sans mentionner
+Les réponses de `/matches`, `/mypronos`, `/config` et `/admin` sont éphémères ; `/leaderboard` répond dans le salon, sans mentionner
 personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
 propose en autocomplétion les splits et tournois passés. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
 valeurs en autocomplétion : matchs à venir pour `open`/`close`, matchs récents pour `result`/`cancel`, et pour `résultat`, les
@@ -202,7 +219,8 @@ src/
 ## Ajouter une compétition
 
 Ajouter une entrée dans `src/config/competitions.ts` : identifiant, nom, `league` Leaguepedia (table `Tournaments`),
-filtre optionnel sur les pages de tournoi, barème. Aucun code métier à toucher. Les serveurs l'activent ensuite via `/configure`.
+filtre optionnel sur les pages de tournoi, barème. Aucun code métier à toucher. Les serveurs l'activent ensuite via `/configure`
+ou `/config competitions`.
 
 ```ts
 { id: 'lck', name: 'LCK', source: { league: 'LoL Champions Korea' }, scoring: DEFAULT_SCORING }
