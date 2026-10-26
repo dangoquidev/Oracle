@@ -1,6 +1,6 @@
 {
   "name": "pronobot",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Discord bot for League of Legends esports predictions",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/main.ts",
