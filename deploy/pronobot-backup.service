@@ -1,0 +1,14 @@
+# Daily PostgreSQL backup of PronoBot (see README, "Sauvegardes").
+# Install: sudo cp deploy/pronobot-backup.* /etc/systemd/system/ && sudo systemctl enable --now pronobot-backup.timer
+[Unit]
+Description=PronoBot database backup
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# Adjust to the account that owns the project (member of the "docker" group) and its path.
+User=pronobot
+ExecStart=/opt/pronobot/scripts/backup.sh
+Nice=10
+IOSchedulingClass=idle

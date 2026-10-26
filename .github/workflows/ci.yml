@@ -24,6 +24,8 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
+      # Operation scripts (shellcheck is preinstalled on GitHub runners).
+      - run: shellcheck -x scripts/*.sh
       # Unit + integration tests (Testcontainers uses the runner's Docker) with coverage thresholds.
       - run: pnpm test:all
 

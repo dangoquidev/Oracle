@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily PronoBot database backup
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=15min
+# Runs at the next boot when the server was off at that time.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
