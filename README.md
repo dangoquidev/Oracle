@@ -6,11 +6,9 @@ Pas d'argent ni de monnaie virtuelle : des points et des classements. Compétiti
 Les données (calendrier, équipes, logos, résultats) viennent de l'API Cargo de [Leaguepedia](https://lol.fandom.com),
 mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API directement.
 
-> État : **Phase 6**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons,
-> rappels et répartition des votes au lock, `/matches`, résultats et calcul des points, classements (`/leaderboard`),
-> `/mypronos`, récaps automatiques, réglages un par un (`/config`), `/admin open|close|result|cancel|recalc|ban|unban|sync`
-> et statistiques des joueurs (`/stats`).
-> Les autres commandes admin, les stats et les backups arrivent dans les phases suivantes.
+> Version **1.0.0**. Onboarding et `/configure`, sync Leaguepedia, publication hebdomadaire, vote par boutons, rappels et
+> répartition des votes au lock, résultats et calcul des points, `/matches`, `/mypronos`, `/leaderboard`, `/stats`, récaps
+> automatiques, `/config`, `/admin`, alertes webhook, sauvegardes et restauration.
 
 ## Sommaire
 
@@ -20,7 +18,11 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 - [Accès à Leaguepedia](#accès-à-leaguepedia)
 - [Variables d'environnement](#variables-denvironnement)
 - [Développement local](#développement-local)
-- [Déploiement (docker compose)](#déploiement-docker-compose)
+- [Déploiement sur Debian (docker compose)](#déploiement-sur-debian-docker-compose)
+- [Alertes](#alertes)
+- [Sauvegardes](#sauvegardes)
+- [Restauration](#restauration)
+- [Exploitation au quotidien](#exploitation-au-quotidien)
 - [Architecture](#architecture)
 - [Ajouter une compétition](#ajouter-une-compétition)
 
@@ -155,6 +157,14 @@ Copier `.env.example` vers `.env`. Le fichier `.env` n'est jamais commité.
 | `NODE_ENV`                                            | non     | `production`          | `development` active les logs lisibles                             |
 | `LOG_LEVEL`                                           | non     | `info`                | `fatal` à `trace`                                                  |
 | `HEALTH_PORT`                                         | non     | `3000`                | Port de `GET /health`                                              |
+| `ALERT_WEBHOOK_URL`                                   | non     |                       | Webhook Discord des alertes (désactivé si vide)                    |
+| `ALERT_MENTION_USER_ID`                               | non     |                       | Utilisateur mentionné sur les alertes d'erreur                     |
+| `BACKUP_DIR`                                          | non     | `backups`             | Dossier des dumps (relatif au projet ou absolu)                    |
+| `BACKUP_KEEP_DAILY` / `BACKUP_KEEP_WEEKLY`            | non     | `7` / `4`             | Dumps quotidiens / hebdomadaires conservés                         |
+| `BACKUP_RSYNC_TARGET`                                 | non     |                       | Copie hors site par rsync (ex. `user@nas:/srv/backups/pronobot`)   |
+| `RESTIC_REPOSITORY` / `RESTIC_PASSWORD_FILE`          | non     |                       | Copie hors site dans un dépôt restic                               |
+
+Les valeurs ne doivent pas contenir de `$` : docker compose l'interpréterait comme une variable (écrire `$$` sinon).
 
 ## Développement local
 
@@ -178,24 +188,149 @@ Pour accéder à la base depuis l'hôte, ajouter `ports: ["5432:5432"]` au servi
 
 Les migrations versionnées (`drizzle/`) sont appliquées automatiquement au démarrage.
 
-## Déploiement (docker compose)
+## Déploiement sur Debian (docker compose)
 
-Sur le serveur (Debian, Docker installé) :
+Le bot n'ouvre aucun port vers l'extérieur : il se connecte à Discord et à Leaguepedia, rien d'autre. Un petit VPS suffit
+(1 vCPU, 1 Go de RAM).
 
-```bash
-git clone <repo> pronobot && cd pronobot
-cp .env.example .env && nano .env      # tokens, Bot Password, POSTGRES_PASSWORD
-docker compose up -d --build
-docker compose logs -f bot
-```
+1. **Installer Docker** depuis le dépôt officiel (<https://docs.docker.com/engine/install/debian/>) :
 
-- Le conteneur `bot` expose un healthcheck (`GET /health` : base joignable et connexion Discord prête).
+   ```bash
+   sudo apt-get update && sudo apt-get install -y ca-certificates curl git
+   sudo install -m 0755 -d /etc/apt/keyrings
+   sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+     https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" |
+     sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+   sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+   ```
+
+2. **Créer un compte dédié** et récupérer le projet :
+
+   ```bash
+   sudo adduser --disabled-password --gecos '' pronobot
+   sudo usermod -aG docker pronobot
+   sudo mkdir -p /opt/pronobot && sudo chown pronobot: /opt/pronobot
+   sudo -iu pronobot git clone <repo> /opt/pronobot
+   ```
+
+3. **Configurer** : `cp .env.example .env`, puis remplir les tokens, le Bot Password, un `POSTGRES_PASSWORD` solide et,
+   idéalement, `ALERT_WEBHOOK_URL`. Protéger le fichier : `chmod 600 .env`.
+
+4. **Démarrer** :
+
+   ```bash
+   cd /opt/pronobot
+   docker compose up -d --build
+   docker compose logs -f bot          # "Connected to Discord", puis "Schedule synced"
+   ```
+
+5. **Activer les sauvegardes** (voir [Sauvegardes](#sauvegardes)).
+
+Fonctionnement en production :
+
+- Les conteneurs redémarrent seuls (`restart: unless-stopped`), y compris après un reboot du serveur.
+- Le conteneur `bot` expose un healthcheck Docker (`GET /health` : base joignable et connexion Discord prête).
+- Les logs (JSON, pino) sont limités à 5 × 10 Mo par conteneur.
+- Les migrations de base sont appliquées automatiquement au démarrage.
 - Les jobs planifiés sont persistés par pg-boss dans le schéma `pgboss` et survivent aux redémarrages :
   - `schedule-sync` (toutes les 6 h) : sync Leaguepedia, calcul des points, récaps dus, emojis des logos, mise à jour des annonces ;
   - `guild-tick` (chaque minute) : publications dues, rappels avant le lock, révélation des votes après le lock ;
   - `results-poll` (toutes les 5 min) : uniquement pendant une fenêtre de match, récupère les résultats et calcule les points ;
     publie ensuite les récaps dus (y compris après une correction d'admin).
-- Mise à jour : `git pull && docker compose up -d --build`.
+
+## Alertes
+
+Avec `ALERT_WEBHOOK_URL` (un webhook Discord : _Paramètres du salon → Intégrations → Webhooks_), le bot prévient
+l'exploitant dans un salon privé :
+
+- 🔴 **chaque erreur** journalisée : job en échec, sync Leaguepedia impossible, publication refusée par Discord,
+  interaction qui plante, exception non gérée. L'alerte reprend le message, le contexte (serveur, job, compétition…) et
+  le début de la pile d'appels ;
+- 🔴 **healthcheck en échec** pendant plus de 5 minutes (Discord déconnecté, base injoignable), puis 🟢 quand tout revient ;
+- ℹ️ **démarrage** du bot : un redémarrage inattendu se voit tout de suite ;
+- 🔴 **sauvegarde en échec** (envoyée par `scripts/backup.sh`).
+
+Une même alerte part au plus une fois toutes les 30 minutes ; la suivante indique combien d'occurrences ont été
+regroupées. Une boucle de crash produit donc un message, pas des centaines. `ALERT_MENTION_USER_ID` mentionne quelqu'un
+sur les erreurs. Les secrets ne sont jamais inclus : seuls les champs simples du contexte sont repris.
+
+## Sauvegardes
+
+`scripts/backup.sh` tourne sur l'hôte. Il fait un `pg_dump` (format custom, compressé) de la base via le conteneur
+`postgres`, vérifie que le dump est lisible, puis applique la rotation :
+
+- `backups/daily/` : les 7 derniers dumps quotidiens ;
+- `backups/weekly/` : une copie par semaine (dès que la dernière a 7 jours), les 4 dernières.
+
+Le dossier est en `chmod 700`. Ensuite, si c'est configuré, le script copie les dumps **hors du serveur** :
+
+- `BACKUP_RSYNC_TARGET` : `rsync --archive --delete` vers un NAS ou un autre serveur (clé SSH du compte `pronobot`) ;
+- `RESTIC_REPOSITORY` + `RESTIC_PASSWORD_FILE` : `restic backup`, puis `restic forget` avec la même rétention
+  (initialiser le dépôt une fois avec `restic init`).
+
+Installer rsync et/ou restic sur l'hôte selon le choix (`sudo apt-get install -y rsync restic`). Une sauvegarde qui
+reste sur le même disque ne protège pas d'une panne du serveur : prévoir l'une des deux copies.
+
+Planifier une exécution quotidienne avec le timer systemd fourni (adapter `User` et le chemin dans le `.service` si le
+projet n'est pas dans `/opt/pronobot`) :
+
+```bash
+sudo cp deploy/pronobot-backup.service deploy/pronobot-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now pronobot-backup.timer
+sudo systemctl start pronobot-backup.service   # premier essai immédiat
+journalctl -u pronobot-backup -n 20            # résultat
+systemctl list-timers pronobot-backup.timer    # prochaine exécution (04:30)
+```
+
+Sans systemd, une ligne de crontab du compte `pronobot` fait la même chose :
+`30 4 * * * /opt/pronobot/scripts/backup.sh >> /opt/pronobot/backups/backup.log 2>&1`.
+
+## Restauration
+
+`scripts/restore.sh` remplace la base par un dump. Il sauvegarde d'abord l'état actuel dans
+`backups/pre-restore-<date>.dump` (on peut donc revenir en arrière de la même façon), arrête le bot, recrée la base,
+restaure, puis relance le bot. Celui-ci applique au démarrage les migrations plus récentes que le dump.
+
+```bash
+cd /opt/pronobot
+ls backups/daily backups/weekly
+scripts/restore.sh backups/daily/pronobot-2026-10-26T043000Z.dump   # demande de taper le nom de la base
+```
+
+`--yes` saute la confirmation (scripts). **Reconstruire un serveur perdu** :
+
+1. Installer Docker, recréer le compte et cloner le projet (étapes 1 et 2 du déploiement).
+2. Remettre le `.env` (gardez-en une copie dans un gestionnaire de mots de passe) et récupérer un dump :
+   `rsync user@nas:/srv/backups/pronobot/daily/<dump> backups/` ou `restic restore latest --target /tmp/restore`.
+3. `docker compose build`, puis `scripts/restore.sh --yes <dump>` : le script démarre PostgreSQL, restaure et lance le bot.
+4. Activer à nouveau le timer de sauvegarde.
+
+Tester une restauration de temps en temps, par exemple sur une machine de test, est le seul moyen d'être sûr des sauvegardes.
+
+## Exploitation au quotidien
+
+| Besoin                      | Commande                                                      |
+| --------------------------- | ------------------------------------------------------------- |
+| Voir les logs               | `docker compose logs -f --since 1h bot`                       |
+| État des conteneurs / santé | `docker compose ps` (colonne _STATUS_ : `healthy`)            |
+| Mettre à jour               | `git pull && docker compose up -d --build`                    |
+| Redémarrer le bot           | `docker compose restart bot`                                  |
+| Forcer une synchro          | `/admin sync` sur Discord (une toutes les 10 minutes au plus) |
+| Console SQL                 | `docker compose exec postgres psql -U pronobot pronobot`      |
+| Lancer une sauvegarde       | `scripts/backup.sh`                                           |
+
+En cas de problème :
+
+- **Le bot ne répond plus** : `docker compose ps`, puis les logs. Un token invalide ou une variable manquante est
+  signalé au démarrage (`Invalid environment: …`).
+- **Plus de nouveaux matchs** : chercher `Schedule sync failed` dans les logs. Un Bot Password révoqué ou un email non
+  confirmé empêche la connexion à Leaguepedia ; les erreurs 503 ou `ratelimited` sont temporaires et retentées seules.
+- **Un serveur ne reçoit plus rien** : `/config show` sur ce serveur dit s'il est en pause (salon ou rôle supprimé) et
+  comment le réactiver.
+- **Logos absents** : vérifier que le bot a « Gérer les expressions » sur les serveurs `EMOJI_GUILD_IDS` et qu'il reste
+  de la place (50 emojis sans boost).
 
 ## Architecture
 
@@ -205,11 +340,13 @@ Clean architecture / hexagonale. Les dépendances pointent vers le domaine, et d
 src/
 ├─ domain/          Règles métier pures : matchs, choix de prono, lock, points, classements, récaps, réglages serveur
 ├─ application/     Use cases + ports (interfaces) : MatchDataProvider, repositories, GuildMessenger…
-├─ infrastructure/  Adapters : Drizzle/PostgreSQL, client Leaguepedia, pg-boss, pino, healthcheck
+├─ infrastructure/  Adapters : Drizzle/PostgreSQL, client Leaguepedia, pg-boss, pino, healthcheck, alertes webhook
 ├─ interfaces/
 │  └─ discord/      Commandes, assistant /configure, parcours de pronos, embeds, i18n FR/EN
 ├─ config/          Validation de l'environnement (zod), catalogue des compétitions
 └─ main.ts          Composition root (injection de dépendances, pas de singletons)
+scripts/            Sauvegarde et restauration (sur l'hôte)
+deploy/             Timer systemd des sauvegardes
 ```
 
 - **Horloge injectable** : tout ce qui dépend du temps se teste avec une horloge fixe.
