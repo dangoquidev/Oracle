@@ -48,6 +48,7 @@ import type { LockOverride } from '../domain/lock/lock-override.js';
 import type { Match } from '../domain/match/match.js';
 import type { Prediction } from '../domain/prediction/prediction.js';
 import type { ResultOverride } from '../domain/scoring/match-outcome.js';
+import type { DayKey, PublishedScope } from '../domain/schedule/publication-plan.js';
 import type { PredictionWeek } from '../domain/schedule/prediction-week.js';
 import type {
   ChannelId,
@@ -334,18 +335,28 @@ export class InMemoryPublicationRepository implements PublicationRepository {
       .filter((id) => weekIds.includes(id));
     return Promise.resolve(new Set(published));
   }
+  findPublishedScopes(guildId: GuildId, weekIds: readonly WeekId[]): Promise<PublishedScope[]> {
+    return Promise.resolve(
+      [...this.publications.values()]
+        .filter((p) => p.guildId === guildId)
+        .flatMap((p) =>
+          p.weekIds.filter((id) => weekIds.includes(id)).map((weekId) => ({ weekId, day: p.day })),
+        ),
+    );
+  }
   reserve(
     guildId: GuildId,
     weekIds: readonly WeekId[],
     channelId: ChannelId,
     _at: Date,
+    day: DayKey | null = null,
   ): Promise<number | null> {
     const taken = [...this.publications.values()].some(
-      (p) => p.guildId === guildId && p.weekIds.some((id) => weekIds.includes(id)),
+      (p) => p.guildId === guildId && p.day === day && p.weekIds.some((id) => weekIds.includes(id)),
     );
     if (taken) return Promise.resolve(null);
     const id = this.nextId++;
-    this.publications.set(id, { id, guildId, weekIds, channelId, messageId: null, fingerprint: null });
+    this.publications.set(id, { id, guildId, weekIds, day, channelId, messageId: null, fingerprint: null });
     return Promise.resolve(id);
   }
   attachMessage(publicationId: number, messageId: string, fingerprint: string): Promise<void> {
@@ -360,7 +371,14 @@ export class InMemoryPublicationRepository implements PublicationRepository {
   find(publicationId: number): Promise<Publication | null> {
     const publication = this.publications.get(publicationId);
     return Promise.resolve(
-      publication ? { id: publication.id, guildId: publication.guildId, weekIds: publication.weekIds } : null,
+      publication
+        ? {
+            id: publication.id,
+            guildId: publication.guildId,
+            weekIds: publication.weekIds,
+            day: publication.day,
+          }
+        : null,
     );
   }
   findActive(guildId: GuildId, _endingAfter: Date): Promise<ActivePublication[]> {

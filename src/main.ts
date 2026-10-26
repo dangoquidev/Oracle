@@ -142,7 +142,15 @@ async function main(): Promise<void> {
     logger,
   );
   const pollLiveResults = new PollLiveResults(calendar, syncSchedule, scorePredictions, clock, logger);
-  const publishDueWeeks = new PublishDueWeeks(guilds, calendar, publications, messenger, clock, logger);
+  const publishDueWeeks = new PublishDueWeeks(
+    guilds,
+    calendar,
+    publications,
+    locks,
+    messenger,
+    clock,
+    logger,
+  );
   const refreshAnnouncements = new RefreshAnnouncements(
     guilds,
     publications,

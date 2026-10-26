@@ -28,8 +28,9 @@ export function renderWeekAnnouncement(announcement: WeekAnnouncement, useEmojis
     .setEmoji('🔮')
     .setStyle(ButtonStyle.Primary);
 
+  const role = roleMention(announcement.pingRoleId);
   return {
-    content: t.announcement.content(roleMention(announcement.pingRoleId)),
+    content: announcement.scope === 'day' ? t.announcement.dayContent(role) : t.announcement.content(role),
     embeds,
     components: [new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(button)],
   };
@@ -41,13 +42,20 @@ function weekEmbed(
   t: Messages,
   useEmojis: boolean,
 ): EmbedBuilder {
+  const { timeZone, locale } = announcement;
+  // A week lists its matches under day headings; a single day puts its date in the title instead.
+  const groupByDay = announcement.scope === 'week';
+  const title = [week.competitionName, week.week.name];
+  const first = week.matches[0];
+  if (!groupByDay && first) title.push(dayHeading(first.scheduledAt, timeZone, locale));
+
   const lines: string[] = [];
   let currentDay: string | null = null;
   for (const match of week.matches) {
-    const day = localDayKey(match.scheduledAt, announcement.timeZone);
-    if (day !== currentDay) {
+    const day = localDayKey(match.scheduledAt, timeZone);
+    if (groupByDay && day !== currentDay) {
       if (currentDay !== null) lines.push('');
-      lines.push(`**${dayHeading(match.scheduledAt, announcement.timeZone, announcement.locale)}**`);
+      lines.push(`**${dayHeading(match.scheduledAt, timeZone, locale)}**`);
       currentDay = day;
     }
     lines.push(
@@ -57,7 +65,7 @@ function weekEmbed(
 
   return new EmbedBuilder()
     .setColor(BRAND_COLOR)
-    .setTitle(`${week.competitionName} · ${week.week.name}`)
+    .setTitle(title.join(' · '))
     .setDescription(truncate(lines.length > 0 ? lines.join('\n') : t.announcement.empty, MAX_DESCRIPTION))
     .setFooter({ text: t.common.dataCredit });
 }

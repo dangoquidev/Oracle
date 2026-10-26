@@ -1,3 +1,4 @@
+import type { DayKey, PublishedScope } from '../../domain/schedule/publication-plan.js';
 import type { ChannelId, GuildId, WeekId } from '../../domain/shared/ids.js';
 
 export type PublicationId = number;
@@ -6,6 +7,8 @@ export interface Publication {
   readonly id: PublicationId;
   readonly guildId: GuildId;
   readonly weekIds: readonly WeekId[];
+  /** Set when the announcement covers a single day of its (single) week. */
+  readonly day: DayKey | null;
 }
 
 /** A posted announcement whose weeks are not over yet. */
@@ -17,16 +20,19 @@ export interface ActivePublication extends Publication {
 }
 
 export interface PublicationRepository {
+  /** Weeks with at least one announcement (whole or for one of its days). */
   findPublishedWeekIds(guildId: GuildId, weekIds: readonly WeekId[]): Promise<Set<WeekId>>;
+  findPublishedScopes(guildId: GuildId, weekIds: readonly WeekId[]): Promise<PublishedScope[]>;
   /**
-   * Claims the weeks for one announcement. Returns null when another process
-   * already claimed any of them, so a week is never announced twice.
+   * Claims whole weeks, or one day of a week, for one announcement. Returns null when another
+   * process already claimed any of them, so nothing is announced twice.
    */
   reserve(
     guildId: GuildId,
     weekIds: readonly WeekId[],
     channelId: ChannelId,
     at: Date,
+    day?: DayKey | null,
   ): Promise<PublicationId | null>;
   attachMessage(publicationId: PublicationId, messageId: string, fingerprint: string): Promise<void>;
   /** Drops a reservation whose message could not be sent, so it is retried later. */

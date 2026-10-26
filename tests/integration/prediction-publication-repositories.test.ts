@@ -127,7 +127,39 @@ describe('prediction and publication repositories', () => {
 
       expect(await publications.findPublishedWeekIds('g1', weekIds)).toEqual(new Set(weekIds));
       expect(await publications.findPublishedWeekIds('g1', [])).toEqual(new Set());
-      expect(await publications.find(id ?? 0)).toEqual({ id, guildId: 'g1', weekIds });
+      expect(await publications.find(id ?? 0)).toEqual({ id, guildId: 'g1', weekIds, day: null });
+    });
+
+    it('reserves single days of a week, each once', async () => {
+      const [week] = weekIds as [number];
+      const day1 = await publications.reserve('g1', [week], 'c', new Date(), 'day:1');
+      expect(day1).not.toBeNull();
+      expect(await publications.reserve('g1', [week], 'c', new Date(), 'day:1')).toBeNull();
+      const day2 = await publications.reserve('g1', [week], 'c', new Date(), 'day:2');
+      expect(day2).not.toBeNull();
+
+      expect(await publications.find(day1 ?? 0)).toMatchObject({ weekIds: [week], day: 'day:1' });
+      expect(
+        (await publications.findPublishedScopes('g1', weekIds)).toSorted((a, b) =>
+          String(a.day).localeCompare(String(b.day)),
+        ),
+      ).toEqual([
+        { weekId: week, day: 'day:1' },
+        { weekId: week, day: 'day:2' },
+      ]);
+      expect(await publications.findPublishedWeekIds('g1', weekIds)).toEqual(new Set([week]));
+      expect((await publications.findActive('g1', new Date('2026-07-01'))).map((p) => p.day)).toEqual([
+        'day:1',
+        'day:2',
+      ]);
+    });
+
+    it('treats announcements made before day publications existed as whole weeks', async () => {
+      const id = await publications.reserve('g1', weekIds, 'c', new Date());
+      expect(await publications.find(id ?? 0)).toMatchObject({ day: null });
+      expect(await publications.findPublishedScopes('g1', weekIds)).toEqual(
+        weekIds.map((weekId) => ({ weekId, day: null })),
+      );
     });
 
     it('attaches the message and releases failed reservations', async () => {
@@ -135,7 +167,7 @@ describe('prediction and publication repositories', () => {
       if (id === null) throw new Error('reservation failed');
       await publications.attachMessage(id, 'msg', 'fp1');
       expect(await publications.findActive('g1', new Date('2026-07-01T00:00:00Z'))).toEqual([
-        { id, guildId: 'g1', channelId: 'c', messageId: 'msg', fingerprint: 'fp1', weekIds },
+        { id, guildId: 'g1', channelId: 'c', messageId: 'msg', fingerprint: 'fp1', weekIds, day: null },
       ]);
       await publications.setFingerprint(id, 'fp2');
       expect((await publications.findActive('g1', new Date('2026-07-01T00:00:00Z')))[0]?.fingerprint).toBe(

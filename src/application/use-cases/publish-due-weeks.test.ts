@@ -4,10 +4,12 @@ import {
   FixedClock,
   InMemoryCalendarRepository,
   InMemoryGuildRepository,
+  InMemoryLockOverrideRepository,
   InMemoryPublicationRepository,
   RecordingMessenger,
   SilentLogger,
 } from '../../test-support/fakes.js';
+import { LockCalculatorFactory } from './lock-calculator.js';
 import { PublishDueWeeks } from './publish-due-weeks.js';
 
 // Tuesday 2026-07-21, 10:00 Paris = publication slot by default.
@@ -43,7 +45,15 @@ describe('PublishDueWeeks', () => {
     messenger = new RecordingMessenger();
     clock = new FixedClock(SLOT);
     logger = new SilentLogger();
-    publish = new PublishDueWeeks(guilds, calendar, publications, messenger, clock, logger);
+    publish = new PublishDueWeeks(
+      guilds,
+      calendar,
+      publications,
+      new LockCalculatorFactory(calendar, new InMemoryLockOverrideRepository()),
+      messenger,
+      clock,
+      logger,
+    );
   });
 
   it('announces the upcoming week of enabled competitions in the configured channel', async () => {
@@ -86,11 +96,82 @@ describe('PublishDueWeeks', () => {
 
   it('gives up quietly when another process claimed the weeks first', async () => {
     await publications.reserve('g1', [1], 'channel-1', SLOT);
-    const findPublished = publications.findPublishedWeekIds.bind(publications);
-    publications.findPublishedWeekIds = () => Promise.resolve(new Set<number>());
+    const findPublished = publications.findPublishedScopes.bind(publications);
+    publications.findPublishedScopes = () => Promise.resolve([]);
     expect(await publish.execute('g1')).toEqual([]);
-    publications.findPublishedWeekIds = findPublished;
+    publications.findPublishedScopes = findPublished;
     expect(messenger.announcements).toEqual([]);
+  });
+
+  describe('weeks whose matchups are decided as they go', () => {
+    // Swiss round over two days: day 2 depends on day 1 results.
+    const round = week({
+      id: 4,
+      competitionId: 'worlds',
+      name: 'Round 3',
+      startsAt: new Date('2026-07-24T16:00:00Z'),
+      endsAt: new Date('2026-07-25T17:00:00Z'),
+    });
+    const day1 = match({
+      id: 41,
+      weekId: 4,
+      competitionId: 'worlds',
+      matchDay: 1,
+      scheduledAt: round.startsAt,
+    });
+    const day2 = (team1Id: number | null) =>
+      match({
+        id: 42,
+        weekId: 4,
+        competitionId: 'worlds',
+        matchDay: 2,
+        team1Id,
+        scheduledAt: new Date('2026-07-25T16:00:00Z'),
+      });
+    const day2b = match({
+      id: 43,
+      weekId: 4,
+      competitionId: 'worlds',
+      matchDay: 2,
+      team1Id: null,
+      team2Id: null,
+      scheduledAt: round.endsAt,
+    });
+
+    beforeEach(() => {
+      guilds.add(activeGuild('g1', { competitionIds: ['worlds'] }));
+      calendar.weeks.push(round);
+      calendar.views.splice(0, calendar.views.length, weekView(round, [day1, day2(null), day2b], 'Worlds'));
+    });
+
+    it('announces each day on its own, as soon as its matchups are known', async () => {
+      expect(await publish.execute('g1')).toEqual([4]);
+      expect(messenger.announcements).toHaveLength(1);
+      expect(messenger.announcements[0]).toMatchObject({ scope: 'day', publicationId: 1 });
+      expect(messenger.announcements[0]?.weeks[0]?.matches.map((m) => m.id)).toEqual([41]);
+      expect(publications.publications.get(1)?.day).toBe('day:1');
+
+      // Nothing more until day 2 is decided…
+      clock.set(new Date('2026-07-24T20:00:00Z'));
+      expect(await publish.execute('g1')).toEqual([]);
+
+      // …then it goes out right away, with the role pinged again.
+      const decided = { ...day2b, team1Id: 30, team2Id: 40 };
+      calendar.views.splice(0, 1, weekView(round, [day1, day2(10), decided], 'Worlds'));
+      expect(await publish.execute('g1')).toEqual([4]);
+      expect(messenger.announcements[1]?.weeks[0]?.matches.map((m) => m.id)).toEqual([42, 43]);
+      expect(await publish.execute('g1')).toEqual([]);
+    });
+
+    it('announces a still partly undecided day 24 h before it starts', async () => {
+      await publish.execute('g1');
+      calendar.views.splice(0, 1, weekView(round, [day1, day2(10), day2b], 'Worlds'));
+      clock.set(new Date('2026-07-24T15:00:00Z'));
+      expect(await publish.execute('g1')).toEqual([]);
+      clock.set(new Date('2026-07-24T16:00:00Z'));
+      expect(await publish.execute('g1')).toEqual([4]);
+      expect(messenger.announcements[1]?.weeks[0]?.matches.map((m) => m.id)).toEqual([42, 43]);
+    });
   });
 
   it('runs for every active server and isolates failures', async () => {

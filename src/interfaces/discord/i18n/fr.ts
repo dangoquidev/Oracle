@@ -34,6 +34,7 @@ export const fr = {
   },
   announcement: {
     content: (role: string) => `${role} les pronos de la semaine sont ouverts !`,
+    dayContent: (role: string) => `${role} les pronos du jour sont ouverts !`,
     predictButton: 'Faire mes pronos',
     empty: 'Aucun match prévu.',
     format: (bestOf: number) => `Bo${bestOf}`,

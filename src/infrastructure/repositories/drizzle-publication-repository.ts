@@ -5,6 +5,7 @@ import type {
   PublicationId,
   PublicationRepository,
 } from '../../application/ports/publication-repository.js';
+import type { DayKey, PublishedScope } from '../../domain/schedule/publication-plan.js';
 import type { ChannelId, GuildId, WeekId } from '../../domain/shared/ids.js';
 import type { Database } from '../db/client.js';
 import { matches, publications, publicationWeeks } from '../db/schema.js';
@@ -22,11 +23,21 @@ export class DrizzlePublicationRepository implements PublicationRepository {
     return new Set(rows.map((row) => row.weekId));
   }
 
+  async findPublishedScopes(guildId: GuildId, weekIds: readonly WeekId[]): Promise<PublishedScope[]> {
+    if (weekIds.length === 0) return [];
+    const rows = await this.db
+      .select({ weekId: publicationWeeks.weekId, dayKey: publicationWeeks.dayKey })
+      .from(publicationWeeks)
+      .where(and(eq(publicationWeeks.guildId, guildId), inArray(publicationWeeks.weekId, [...weekIds])));
+    return rows.map((row) => ({ weekId: row.weekId, day: toDay(row.dayKey) }));
+  }
+
   async reserve(
     guildId: GuildId,
     weekIds: readonly WeekId[],
     channelId: ChannelId,
     at: Date,
+    day: DayKey | null = null,
   ): Promise<PublicationId | null> {
     try {
       return await this.db.transaction(async (tx) => {
@@ -37,7 +48,9 @@ export class DrizzlePublicationRepository implements PublicationRepository {
         if (!publication) throw new Error('Publication insert returned nothing');
         await tx
           .insert(publicationWeeks)
-          .values(weekIds.map((weekId) => ({ publicationId: publication.id, guildId, weekId })));
+          .values(
+            weekIds.map((weekId) => ({ publicationId: publication.id, guildId, weekId, dayKey: day ?? '' })),
+          );
         return publication.id;
       });
     } catch (error) {
@@ -59,13 +72,22 @@ export class DrizzlePublicationRepository implements PublicationRepository {
 
   async find(publicationId: PublicationId): Promise<Publication | null> {
     const rows = await this.db
-      .select({ guildId: publications.guildId, weekId: publicationWeeks.weekId })
+      .select({
+        guildId: publications.guildId,
+        weekId: publicationWeeks.weekId,
+        dayKey: publicationWeeks.dayKey,
+      })
       .from(publications)
       .innerJoin(publicationWeeks, eq(publicationWeeks.publicationId, publications.id))
       .where(eq(publications.id, publicationId));
     const [first] = rows;
     if (!first) return null;
-    return { id: publicationId, guildId: first.guildId, weekIds: rows.map((row) => row.weekId) };
+    return {
+      id: publicationId,
+      guildId: first.guildId,
+      weekIds: rows.map((row) => row.weekId),
+      day: toDay(first.dayKey),
+    };
   }
 
   async findActive(guildId: GuildId, endingAfter: Date): Promise<ActivePublication[]> {
@@ -75,14 +97,14 @@ export class DrizzlePublicationRepository implements PublicationRepository {
       .innerJoin(matches, eq(matches.weekId, publicationWeeks.weekId))
       .where(and(eq(publicationWeeks.guildId, guildId), gte(matches.scheduledAt, endingAfter)));
     const rows = await this.db
-      .select({ publication: publications, weekId: publicationWeeks.weekId })
+      .select({ publication: publications, weekId: publicationWeeks.weekId, dayKey: publicationWeeks.dayKey })
       .from(publications)
       .innerJoin(publicationWeeks, eq(publicationWeeks.publicationId, publications.id))
       .where(inArray(publications.id, active))
       .orderBy(asc(publications.id), asc(publicationWeeks.weekId));
 
     const byId = new Map<PublicationId, ActivePublication & { weekIds: WeekId[] }>();
-    for (const { publication, weekId } of rows) {
+    for (const { publication, weekId, dayKey } of rows) {
       const entry = byId.get(publication.id) ?? {
         id: publication.id,
         guildId: publication.guildId,
@@ -90,6 +112,7 @@ export class DrizzlePublicationRepository implements PublicationRepository {
         messageId: publication.messageId,
         fingerprint: publication.fingerprint,
         weekIds: [],
+        day: toDay(dayKey),
       };
       entry.weekIds.push(weekId);
       byId.set(publication.id, entry);
@@ -100,4 +123,8 @@ export class DrizzlePublicationRepository implements PublicationRepository {
   async setFingerprint(publicationId: PublicationId, fingerprint: string): Promise<void> {
     await this.db.update(publications).set({ fingerprint }).where(eq(publications.id, publicationId));
   }
+}
+
+function toDay(dayKey: string): DayKey | null {
+  return dayKey === '' ? null : dayKey;
 }

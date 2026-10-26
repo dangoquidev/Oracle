@@ -14,6 +14,8 @@ export interface WeekAnnouncement {
   readonly locale: Locale;
   readonly timeZone: string;
   readonly publicationId: PublicationId;
+  /** A whole week (or several), or a single day of a week whose matchups were decided as it went. */
+  readonly scope: 'week' | 'day';
   readonly weeks: readonly WeekView[];
 }
 

@@ -6,6 +6,7 @@ import type { GuildRepository } from '../ports/guild-repository.js';
 import type { Logger } from '../ports/logger.js';
 import type { ActivePublication, PublicationRepository } from '../ports/publication-repository.js';
 import { announcementFingerprint } from '../read-models/fingerprint.js';
+import { scopeWeeks } from '../read-models/publication-scope.js';
 
 /**
  * Keeps posted announcements in line with the calendar: teams decided after posting,
@@ -41,7 +42,11 @@ export class RefreshAnnouncements {
 
   private async refresh(guild: Guild, publication: ActivePublication): Promise<boolean> {
     if (!guild.settings || publication.messageId === null) return false;
-    const weeks = await this.calendar.findWeekViews(publication.weekIds);
+    const weeks = scopeWeeks(
+      await this.calendar.findWeekViews(publication.weekIds),
+      publication.day,
+      guild.settings.timeZone,
+    );
     const fingerprint = announcementFingerprint(weeks);
     if (fingerprint === publication.fingerprint) return false;
 
@@ -52,6 +57,7 @@ export class RefreshAnnouncements {
       locale: guild.settings.locale,
       timeZone: guild.settings.timeZone,
       publicationId: publication.id,
+      scope: publication.day === null ? 'week' : 'day',
       weeks,
     });
     // A deleted message is not recreated; remember the content to stop retrying.

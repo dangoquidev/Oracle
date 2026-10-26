@@ -47,6 +47,7 @@ describe('renderWeekAnnouncement', () => {
     locale: 'fr',
     timeZone: 'Europe/Paris',
     publicationId: 42,
+    scope: 'week',
     weeks: [
       {
         week: week1,
@@ -80,6 +81,18 @@ describe('renderWeekAnnouncement', () => {
     expect(first?.description).toContain('**FNC** vs *À déterminer* · Bo3');
     expect(first?.footer?.text).toContain('Leaguepedia');
     expect(second?.description).toBe('Aucun match prévu.');
+  });
+
+  it('names the day in the title when announcing a single day', () => {
+    const [firstWeek] = announcement.weeks;
+    if (!firstWeek) throw new Error('fixture');
+    const day = { ...firstWeek, matches: firstWeek.matches.slice(0, 1) };
+    const view = renderWeekAnnouncement({ ...announcement, scope: 'day', weeks: [day] }, true);
+    expect(view.content).toBe('<@&999> les pronos du jour sont ouverts !');
+    const embed = view.embeds[0]?.toJSON();
+    expect(embed?.title).toBe('LEC · Week 3 · Vendredi 7 août');
+    expect(embed?.description).not.toContain('**Vendredi 7 août**');
+    expect(embed?.description).toContain('<:t:111> **G2** vs **FNC** · Bo1');
   });
 
   it('offers a button opening the prediction journey', () => {

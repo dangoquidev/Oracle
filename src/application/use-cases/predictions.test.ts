@@ -268,6 +268,12 @@ describe('predictions', () => {
       expect(result.ok && result.value.items[0]?.distribution).toBeNull();
     });
 
+    it('only walks through the day an announcement was made for', async () => {
+      const dayTwo = await publications.reserve('g1', [1], 'channel-1', new Date(), 'day:2');
+      const result = await journey('g1', dayTwo ?? 0);
+      expect(result.ok && result.value.items.map((item) => item.match.id)).toEqual([3, 4]);
+    });
+
     it('refuses publications of another server or unknown ones', async () => {
       guilds.add(activeGuild('g2'));
       expect(await journey('g2', 1)).toEqual({ ok: false, error: 'publication-not-found' });

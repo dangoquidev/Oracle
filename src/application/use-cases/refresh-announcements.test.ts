@@ -58,6 +58,18 @@ describe('RefreshAnnouncements', () => {
     expect(await refresh.executeForAll()).toBe(0);
   });
 
+  it('keeps a day announcement to its own day', async () => {
+    const other = match({ id: 2, matchDay: 2, scheduledAt: new Date('2026-08-02T16:00:00Z') });
+    calendar.views.splice(0, 1, weekView(week1, [{ ...tbdMatch, team2Id: 20 }, other]));
+    publications.publications.clear();
+    const id = await publications.reserve('g1', [1], 'channel-1', new Date(), 'day:1');
+    await publications.attachMessage(id ?? 0, 'msg-2', 'old');
+
+    expect(await refresh.executeForAll()).toBe(1);
+    expect(messenger.updates[0]?.announcement.scope).toBe('day');
+    expect(messenger.updates[0]?.announcement.weeks[0]?.matches.map((m) => m.id)).toEqual([1]);
+  });
+
   it('stops trying when the message was deleted', async () => {
     calendar.views.splice(0, 1, weekView(week({ id: 1, name: 'Renamed' }), [tbdMatch]));
     messenger.deletedMessages.add('msg-1');

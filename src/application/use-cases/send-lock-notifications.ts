@@ -4,7 +4,7 @@ import {
   planLockNotifications,
   type LockGroup,
 } from '../../domain/schedule/lock-notifications.js';
-import type { WeekId } from '../../domain/shared/ids.js';
+import type { MatchId } from '../../domain/shared/ids.js';
 import type { CalendarRepository } from '../ports/calendar-repository.js';
 import type { Clock } from '../ports/clock.js';
 import type { DispatchLog } from '../ports/dispatch-log.js';
@@ -14,6 +14,7 @@ import type { Logger } from '../ports/logger.js';
 import type { PredictionRepository } from '../ports/prediction-repository.js';
 import type { PublicationId, PublicationRepository } from '../ports/publication-repository.js';
 import type { ResultOverrideRepository } from '../ports/result-override-repository.js';
+import { scopeWeeks } from '../read-models/publication-scope.js';
 import { loadDistributions } from '../read-models/vote-distributions.js';
 import type { MatchView, WeekView } from '../read-models/views.js';
 import type { LockCalculatorFactory } from './lock-calculator.js';
@@ -51,12 +52,25 @@ export class SendLockNotifications {
     const now = this.clock.now();
 
     const publications = await this.publications.findActive(guild.id, new Date(now.getTime() - DAY_MS));
-    const publicationOfWeek = new Map<WeekId, PublicationId>();
+    const allWeeks = await this.calendar.findWeekViews([
+      ...new Set(publications.flatMap((publication) => publication.weekIds)),
+    ]);
+    // Only matches already announced are reminded and revealed (a week may be announced day by day).
+    const publicationOfMatch = new Map<MatchId, PublicationId>();
     for (const publication of publications) {
-      for (const weekId of publication.weekIds) publicationOfWeek.set(weekId, publication.id);
+      const covered = scopeWeeks(
+        allWeeks.filter((week) => publication.weekIds.includes(week.week.id)),
+        publication.day,
+        settings.timeZone,
+      );
+      for (const match of covered.flatMap((week) => week.matches))
+        publicationOfMatch.set(match.id, publication.id);
     }
-    const weeks = await this.calendar.findWeekViews([...publicationOfWeek.keys()]);
-    if (weeks.length === 0) return;
+    const weeks = allWeeks.map((week) => ({
+      ...week,
+      matches: week.matches.filter((match) => publicationOfMatch.has(match.id)),
+    }));
+    if (publicationOfMatch.size === 0) return;
 
     const locks = this.locks.forGuild(guild.id, settings);
     const overrides = await this.resultOverrides.findForMatches(
@@ -84,7 +98,7 @@ export class SendLockNotifications {
 
     for (const group of plan.reminders) {
       const week = weekById.get(group.weekId);
-      const publicationId = publicationOfWeek.get(group.weekId);
+      const publicationId = publicationOfMatch.get(group.matchIds[0] ?? -1);
       if (!week || publicationId === undefined) continue;
       await this.messenger.sendLockReminder({
         guildId: guild.id,

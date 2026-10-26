@@ -78,6 +78,19 @@ describe('SendLockNotifications', () => {
     expect(messenger.reminders[0]?.matches.map((m) => m.id)).toEqual([1, 2]);
   });
 
+  it('only reminds days already announced when a week goes day by day', async () => {
+    publications.publications.clear();
+    await publications.reserve('g1', [1], 'channel-1', new Date(), 'day:2');
+    await notify.executeForAll();
+    expect(messenger.reminders).toEqual([]);
+
+    const dayOne = await publications.reserve('g1', [1], 'channel-1', new Date(), 'day:1');
+    await notify.executeForAll();
+    expect(messenger.reminders.map((r) => [r.publicationId, r.matches.map((m) => m.id)])).toEqual([
+      [dayOne, [1, 2]],
+    ]);
+  });
+
   it('leaves cancelled matches out of reminders', async () => {
     await resultOverrides.set('g1', 2, { kind: 'cancelled' });
     await notify.executeForAll();

@@ -36,6 +36,7 @@ export const en: Messages = {
   },
   announcement: {
     content: (role: string) => `${role} this week's predictions are open!`,
+    dayContent: (role: string) => `${role} today's predictions are open!`,
     predictButton: 'Make my predictions',
     empty: 'No match scheduled.',
     format: (bestOf: number) => `Bo${bestOf}`,

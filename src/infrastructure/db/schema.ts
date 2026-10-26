@@ -189,11 +189,13 @@ export const publicationWeeks = pgTable(
     weekId: integer('week_id')
       .notNull()
       .references(() => weeks.id),
+    /** Empty for a whole week, otherwise the single day announced. */
+    dayKey: text('day_key').notNull().default(''),
   },
-  // A week is announced at most once per server.
+  // A week, or a day of it, is announced at most once per server.
   (table) => [
     primaryKey({ columns: [table.publicationId, table.weekId] }),
-    unique().on(table.guildId, table.weekId),
+    unique().on(table.guildId, table.weekId, table.dayKey),
   ],
 );
 

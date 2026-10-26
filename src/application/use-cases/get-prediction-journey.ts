@@ -14,6 +14,7 @@ import type { PredictionRepository } from '../ports/prediction-repository.js';
 import type { PublicationId, PublicationRepository } from '../ports/publication-repository.js';
 import type { ResultOverrideRepository } from '../ports/result-override-repository.js';
 import { areVotesVisible, standingOf, type MatchPredictionState } from '../read-models/match-state.js';
+import { scopeWeeks } from '../read-models/publication-scope.js';
 import { loadDistributions } from '../read-models/vote-distributions.js';
 import type { MatchView } from '../read-models/views.js';
 import type { LockCalculatorFactory } from './lock-calculator.js';
@@ -70,7 +71,11 @@ export class GetPredictionJourney {
     const publication = await this.publications.find(publicationId);
     if (publication?.guildId !== guildId) return err('publication-not-found');
 
-    const weeks = await this.calendar.findWeekViews(publication.weekIds);
+    const weeks = scopeWeeks(
+      await this.calendar.findWeekViews(publication.weekIds),
+      publication.day,
+      guild.settings.timeZone,
+    );
     const matchIds = weeks.flatMap((week) => week.matches.map((match) => match.id));
     const existing = await this.predictions.findByUser(guildId, userId, matchIds);
     const existingByMatch = new Map(existing.map((prediction) => [prediction.matchId, prediction]));

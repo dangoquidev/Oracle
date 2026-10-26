@@ -1,6 +1,4 @@
 import { DateTime } from 'luxon';
-import type { WeekId } from '../shared/ids.js';
-import type { PredictionWeek } from './prediction-week.js';
 
 /** ISO weekday: 1 = Monday … 7 = Sunday. */
 export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -31,22 +29,4 @@ export function previousSlot(schedule: PublishSchedule, timeZone: string, now: D
 export function nextSlot(schedule: PublishSchedule, timeZone: string, now: Date): Date {
   const previous = DateTime.fromJSDate(previousSlot(schedule, timeZone, now), { zone: timeZone });
   return previous.plus({ weeks: 1 }).toJSDate();
-}
-
-/**
- * Weeks to announce now: not yet announced, not over, and starting before the next slot.
- * A guild configured mid-week therefore gets the ongoing week right away.
- */
-export function weeksDueForPublication(
-  weeks: readonly PredictionWeek[],
-  schedule: PublishSchedule,
-  timeZone: string,
-  now: Date,
-  alreadyPublished: ReadonlySet<WeekId>,
-): PredictionWeek[] {
-  const upcomingSlot = nextSlot(schedule, timeZone, now).getTime();
-  return weeks
-    .filter((week) => !alreadyPublished.has(week.id))
-    .filter((week) => week.endsAt.getTime() > now.getTime() && week.startsAt.getTime() < upcomingSlot)
-    .toSorted((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 }
