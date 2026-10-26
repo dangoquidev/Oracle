@@ -29,6 +29,13 @@
       "when": 1792967014898,
       "tag": "0003_points_breakdown",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792982453657,
+      "tag": "0004_player_bans",
+      "breakpoints": true
     }
   ]
 }

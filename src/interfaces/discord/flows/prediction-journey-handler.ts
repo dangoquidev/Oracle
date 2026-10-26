@@ -82,8 +82,11 @@ async function loadJourney(
   if (result.ok) return { journey: result.value, locale: localeFor(interaction.locale, result.value.locale) };
 
   const t = messages(localeFor(interaction.locale, null));
-  const content =
-    result.error === 'publication-not-found' ? t.journey.publicationNotFound : t.access.unconfigured;
+  const content = {
+    'publication-not-found': t.journey.publicationNotFound,
+    banned: t.journey.banned,
+    'guild-not-active': t.access.unconfigured,
+  }[result.error];
   if (action.action === 'open') await interaction.reply({ content, flags: MessageFlags.Ephemeral });
   else await interaction.update({ content, embeds: [], components: [] });
   return null;

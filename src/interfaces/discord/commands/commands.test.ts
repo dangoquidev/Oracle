@@ -7,7 +7,14 @@ describe('command definitions', () => {
   const byName = new Map(commands.map((command) => [command.name, command]));
 
   it('registers every command', () => {
-    expect([...byName.keys()]).toEqual(['configure', 'matches', 'mypronos', 'leaderboard', 'admin']);
+    expect([...byName.keys()]).toEqual([
+      'configure',
+      'config',
+      'matches',
+      'mypronos',
+      'leaderboard',
+      'admin',
+    ]);
   });
 
   it('lets players pick a period, a competition and a past season for the leaderboard', () => {
@@ -30,6 +37,7 @@ describe('command definitions', () => {
   it('restricts admin commands to "Manage Server"', () => {
     expect(byName.get('configure')?.default_member_permissions).toBe('32');
     expect(byName.get('admin')?.default_member_permissions).toBe('32');
+    expect(byName.get('config')?.default_member_permissions).toBe('32');
     expect(byName.get('matches')?.default_member_permissions).toBeUndefined();
   });
 
@@ -48,7 +56,16 @@ describe('command definitions', () => {
       name: string;
       options?: { name: string; autocomplete?: boolean; required?: boolean }[];
     }[];
-    expect(subcommands.map((sub) => sub.name)).toEqual(['open', 'close', 'result', 'cancel', 'recalc']);
+    expect(subcommands.map((sub) => sub.name)).toEqual([
+      'open',
+      'close',
+      'result',
+      'cancel',
+      'recalc',
+      'ban',
+      'unban',
+      'sync',
+    ]);
     expect(
       subcommands[2]?.options?.map((option) => [option.name, option.required, option.autocomplete]),
     ).toEqual([
@@ -59,5 +76,62 @@ describe('command definitions', () => {
       ['week', true],
       ['match', true],
     ]);
+  });
+
+  it('offers one /config subcommand per setting, with localised options', () => {
+    const subcommands = (byName.get('config')?.options ?? []) as {
+      name: string;
+      options?: {
+        name: string;
+        name_localizations?: Record<string, string>;
+        required?: boolean;
+        autocomplete?: boolean;
+        choices?: { value: string | number; name_localizations?: Record<string, string> }[];
+      }[];
+    }[];
+    expect(subcommands.map((sub) => sub.name)).toEqual([
+      'show',
+      'channel',
+      'role',
+      'timezone',
+      'language',
+      'lock',
+      'reminders',
+      'recap',
+      'publish',
+      'competitions',
+    ]);
+    const byOption = new Map(subcommands.map((sub) => [sub.name, sub.options ?? []]));
+    expect(byOption.get('timezone')?.[0]).toMatchObject({
+      name: 'timezone',
+      required: true,
+      autocomplete: true,
+    });
+    const lock = byOption.get('lock') ?? [];
+    expect(
+      lock.map((option) => [option.name, option.name_localizations?.fr ?? null, option.required ?? false]),
+    ).toEqual([
+      ['mode', null, false],
+      ['delay', 'delai', false],
+    ]);
+    expect(lock[1]?.choices?.find((choice) => choice.value === 120)?.name_localizations?.fr).toBe('2 h');
+    expect(byOption.get('competitions')?.[0]?.choices?.map((choice) => choice.value)).toEqual([
+      'worlds',
+      'lec',
+    ]);
+  });
+
+  it('asks for the player to ban or unban', () => {
+    const subcommands = (byName.get('admin')?.options ?? []) as {
+      name: string;
+      options?: { name: string; required?: boolean; max_length?: number }[];
+    }[];
+    const ban = subcommands.find((sub) => sub.name === 'ban');
+    expect(ban?.options?.map((option) => [option.name, option.required ?? false])).toEqual([
+      ['user', true],
+      ['reason', false],
+    ]);
+    expect(ban?.options?.[1]?.max_length).toBe(200);
+    expect(subcommands.find((sub) => sub.name === 'sync')?.options ?? []).toEqual([]);
   });
 });

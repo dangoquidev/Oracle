@@ -2,14 +2,15 @@ import type { Competition } from '../../domain/competition/competition.js';
 import { currentSeason } from '../../domain/competition/season.js';
 import { accessOf } from '../../domain/guild/guild.js';
 import type { Locale } from '../../domain/guild/guild-settings.js';
-import { rankTallies, type LeaderboardEntry } from '../../domain/leaderboard/leaderboard.js';
+import type { LeaderboardEntry } from '../../domain/leaderboard/leaderboard.js';
 import { latestStartedWeek } from '../../domain/schedule/week-navigation.js';
 import type { CompetitionId, GuildId, SeasonId, UserId } from '../../domain/shared/ids.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
 import type { CalendarRepository } from '../ports/calendar-repository.js';
 import type { Clock } from '../ports/clock.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
-import type { LeaderboardQuery, TallyFilter } from '../ports/leaderboard-query.js';
+import type { TallyFilter } from '../ports/leaderboard-query.js';
+import type { StandingsReader } from '../read-models/standings.js';
 
 const WEEK_SEARCH_MS = 180 * 86_400_000;
 
@@ -45,13 +46,14 @@ export type LeaderboardError = 'guild-not-active' | 'season-not-found';
 
 /**
  * Week, season (split or tournament) or all-time standings of a server, for one competition or all.
- * Points come from judged predictions only, so a player joining mid-season simply starts from 0.
+ * Points come from judged predictions only, so a player joining mid-season simply starts from 0;
+ * banned players are left out.
  */
 export class GetLeaderboard {
   constructor(
     private readonly guilds: GuildRepository,
     private readonly calendar: CalendarRepository,
-    private readonly leaderboards: LeaderboardQuery,
+    private readonly standings: StandingsReader,
     private readonly competitions: readonly Competition[],
     private readonly clock: Clock,
   ) {}
@@ -70,7 +72,7 @@ export class GetLeaderboard {
     if (!resolved.ok) return resolved;
 
     const { scopes, filter } = resolved.value;
-    const entries = filter ? rankTallies(await this.leaderboards.tally(request.guildId, filter)) : [];
+    const entries = filter ? await this.standings.rank(request.guildId, filter) : [];
     return ok({
       locale: guild.settings.locale,
       period,

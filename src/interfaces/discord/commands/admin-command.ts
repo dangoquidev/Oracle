@@ -6,8 +6,10 @@ import {
   type AutocompleteInteraction,
   type ChatInputCommandInteraction,
   type SlashCommandSubcommandBuilder,
+  userMention,
 } from 'discord.js';
 import { DateTime } from 'luxon';
+import { MAX_BAN_REASON_LENGTH } from '../../../domain/guild/player-ban.js';
 import type { MatchView } from '../../../application/read-models/views.js';
 import type { ResultDecision } from '../../../application/use-cases/admin-results.js';
 import type { LockTargets, TargetScope } from '../../../application/use-cases/list-lock-targets.js';
@@ -28,7 +30,7 @@ interface Choice {
   name: string;
   value: string;
 }
-type Subcommand = 'open' | 'close' | 'result' | 'cancel' | 'recalc';
+type Subcommand = 'open' | 'close' | 'result' | 'cancel' | 'recalc' | 'ban' | 'unban' | 'sync';
 
 export function adminCommand(): SlashCommandBuilder {
   const fr = messages('fr').commands.admin;
@@ -86,6 +88,27 @@ export function adminCommand(): SlashCommandBuilder {
     ),
   );
   command.addSubcommand((sub) => describe(sub, 'recalc'));
+  const userOption = (sub: SlashCommandSubcommandBuilder) =>
+    sub.addUserOption((option) =>
+      option
+        .setName('user')
+        .setNameLocalizations({ fr: 'joueur' })
+        .setDescription(en.user)
+        .setDescriptionLocalizations({ fr: fr.user })
+        .setRequired(true),
+    );
+  command.addSubcommand((sub) =>
+    userOption(describe(sub, 'ban')).addStringOption((option) =>
+      option
+        .setName('reason')
+        .setNameLocalizations({ fr: 'raison' })
+        .setDescription(en.reason)
+        .setDescriptionLocalizations({ fr: fr.reason })
+        .setMaxLength(MAX_BAN_REASON_LENGTH),
+    ),
+  );
+  command.addSubcommand((sub) => userOption(describe(sub, 'unban')));
+  command.addSubcommand((sub) => describe(sub, 'sync'));
   return command;
 }
 
@@ -114,7 +137,65 @@ export async function handleAdminCommand(
       await reply(interaction, result.ok ? t.admin.recalculated(result.value) : t.access.unconfigured);
       return;
     }
+    case 'ban':
+    case 'unban':
+      await handleBan(interaction, deps, t, subcommand);
+      return;
+    case 'sync': {
+      const result = await deps.useCases.requestScheduleSync.execute(
+        interaction.guildId,
+        interaction.user.id,
+      );
+      const content = result.ok
+        ? t.admin.syncQueued
+        : result.error === 'throttled'
+          ? t.admin.syncThrottled
+          : t.access.unconfigured;
+      await reply(interaction, content);
+      return;
+    }
   }
+}
+
+async function handleBan(
+  interaction: ChatInputCommandInteraction<'cached'>,
+  deps: DiscordDependencies,
+  t: Messages,
+  subcommand: 'ban' | 'unban',
+): Promise<void> {
+  const user = interaction.options.getUser('user', true);
+  const mention = userMention(user.id);
+  if (subcommand === 'unban') {
+    const result = await deps.useCases.managePlayerBans.unban(interaction.guildId, user.id);
+    const content = !result.ok
+      ? t.access.unconfigured
+      : result.value === 'unbanned'
+        ? t.admin.unbanned(mention)
+        : t.admin.notBanned(mention);
+    await reply(interaction, content);
+    return;
+  }
+
+  if (user.bot) {
+    await reply(interaction, t.admin.cannotBanBot);
+    return;
+  }
+  const given = interaction.options.getString('reason')?.trim() ?? '';
+  const reason = given === '' ? null : given;
+  const result = await deps.useCases.managePlayerBans.ban({
+    guildId: interaction.guildId,
+    adminId: interaction.user.id,
+    userId: user.id,
+    reason,
+  });
+  const content = !result.ok
+    ? result.error === 'cannot-ban-self'
+      ? t.admin.cannotBanSelf
+      : t.access.unconfigured
+    : result.value === 'banned'
+      ? t.admin.banned(mention, reason)
+      : t.admin.alreadyBanned(mention);
+  await reply(interaction, content);
 }
 
 async function handleLock(

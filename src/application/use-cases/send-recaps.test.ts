@@ -6,6 +6,7 @@ import type { PredictionOutcome } from '../../domain/scoring/score-prediction.js
 import { activeGuild, match, week, weekView } from '../../test-support/builders.js';
 import {
   FixedClock,
+  InMemoryBanRepository,
   InMemoryCalendarRepository,
   InMemoryDispatchLog,
   InMemoryGuildRepository,
@@ -17,6 +18,7 @@ import {
   SilentLogger,
 } from '../../test-support/fakes.js';
 import type { SeasonSummary } from '../ports/calendar-repository.js';
+import { StandingsReader } from '../read-models/standings.js';
 import { SendRecaps } from './send-recaps.js';
 
 const scored = (points: number): PredictionOutcome => ({
@@ -76,6 +78,7 @@ describe('SendRecaps', () => {
   let dispatchLog: InMemoryDispatchLog;
   let messenger: RecordingMessenger;
   let clock: FixedClock;
+  let bans: InMemoryBanRepository;
 
   const seed = (matches: readonly Match[], frequency: RecapFrequency = 'weekly') => {
     guilds.add(activeGuild('g1', { competitionIds: ['worlds'], recapFrequency: frequency }));
@@ -98,7 +101,7 @@ describe('SendRecaps', () => {
       publications,
       calendar,
       predictions,
-      new InMemoryLeaderboardQuery(predictions, calendar),
+      new StandingsReader(new InMemoryLeaderboardQuery(predictions, calendar), bans),
       overrides,
       dispatchLog,
       messenger,
@@ -118,6 +121,7 @@ describe('SendRecaps', () => {
     dispatchLog = new InMemoryDispatchLog();
     messenger = new RecordingMessenger();
     clock = new FixedClock(new Date('2026-08-08T20:00:00Z'));
+    bans = new InMemoryBanRepository();
 
     await predict('alice', 1, scored(1));
     await predict('bob', 1, scored(0));
@@ -162,6 +166,24 @@ describe('SendRecaps', () => {
       ['bob', 1, 2],
     ]);
     expect(dispatchLog.sent.has('g1:recap:week:4')).toBe(true);
+  });
+
+  it('leaves banned players out of the counts and standings', async () => {
+    await bans.ban({ guildId: 'g1', userId: 'bob', bannedBy: 'admin', reason: null, bannedAt: new Date() });
+    seed([
+      { ...friday1, ...won },
+      { ...friday2, ...won },
+      { ...saturday, ...won },
+    ]);
+    await run();
+    const [recap] = messenger.matchRecaps;
+    expect(recap?.matches.map((line) => [line.match.id, line.predictions, line.correctWinners])).toEqual([
+      [1, 1, 1],
+      [2, 1, 1],
+      [3, 0, 0],
+    ]);
+    expect(recap?.standings.map((entry) => entry.userId)).toEqual(['alice']);
+    expect(recap?.season?.standings.map((entry) => entry.userId)).toEqual(['alice']);
   });
 
   it('recaps each finished day in daily mode', async () => {

@@ -8,6 +8,7 @@ import {
 } from 'discord.js';
 import type { GuildAccess } from '../../domain/guild/guild.js';
 import { handleAdminAutocomplete, handleAdminCommand } from './commands/admin-command.js';
+import { handleConfigAutocomplete, handleConfigCommand } from './commands/config-command.js';
 import { handleConfigureCommand } from './commands/configure-command.js';
 import { handleLeaderboardAutocomplete, handleLeaderboardCommand } from './commands/leaderboard-command.js';
 import { handleMatchesCommand } from './commands/matches-command.js';
@@ -36,7 +37,7 @@ type CommandHandler = (
   deps: DiscordDependencies,
 ) => Promise<void>;
 
-/** Commands that require a configured server (everything but /configure). */
+/** Commands that require an active server (everything but /configure and /config). */
 const GATED_COMMANDS: Readonly<Record<string, CommandHandler>> = {
   matches: handleMatchesCommand,
   mypronos: handleMyPredictionsCommand,
@@ -49,6 +50,7 @@ async function route(interaction: Interaction, deps: DiscordDependencies): Promi
     if (!interaction.inCachedGuild()) return;
     if (interaction.commandName === 'admin') await handleAdminAutocomplete(interaction, deps);
     if (interaction.commandName === 'leaderboard') await handleLeaderboardAutocomplete(interaction, deps);
+    if (interaction.commandName === 'config') await handleConfigAutocomplete(interaction);
     return;
   }
   if (!interaction.isRepliable()) return;
@@ -63,6 +65,11 @@ async function route(interaction: Interaction, deps: DiscordDependencies): Promi
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'configure') {
       await handleConfigureCommand(interaction, deps);
+      return;
+    }
+    // Not gated: replacing a deleted channel or role is how a paused server comes back.
+    if (interaction.commandName === 'config') {
+      await handleConfigCommand(interaction, deps);
       return;
     }
     const handler = GATED_COMMANDS[interaction.commandName];

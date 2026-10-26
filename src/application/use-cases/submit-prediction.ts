@@ -5,6 +5,7 @@ import type { Prediction } from '../../domain/prediction/prediction.js';
 import { isChoiceValidFor, type PredictionChoice } from '../../domain/prediction/prediction-choice.js';
 import type { GuildId, MatchId, UserId } from '../../domain/shared/ids.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
+import type { BanRepository } from '../ports/ban-repository.js';
 import type { CalendarRepository } from '../ports/calendar-repository.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
 import type { PredictionRepository } from '../ports/prediction-repository.js';
@@ -22,6 +23,7 @@ export interface SubmitPredictionCommand {
 
 export type SubmitPredictionError =
   | 'guild-not-active'
+  | 'banned'
   | 'match-not-found'
   | 'opponents-unknown'
   | 'match-not-open'
@@ -37,11 +39,13 @@ export class SubmitPrediction {
     private readonly predictions: PredictionRepository,
     private readonly resultOverrides: ResultOverrideRepository,
     private readonly locks: LockCalculatorFactory,
+    private readonly bans: BanRepository,
   ) {}
 
   async execute(command: SubmitPredictionCommand): Promise<Result<Prediction, SubmitPredictionError>> {
     const guild = await this.guilds.find(command.guildId);
     if (!guild?.settings || accessOf(guild) !== 'allowed') return err('guild-not-active');
+    if (await this.bans.isBanned(guild.id, command.userId)) return err('banned');
 
     const match = await this.calendar.findMatch(command.matchId);
     if (!match) return err('match-not-found');

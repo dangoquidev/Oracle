@@ -2,7 +2,6 @@ import type { Competition } from '../../domain/competition/competition.js';
 import { isSeasonOver } from '../../domain/competition/season.js';
 import { accessOf, type Guild } from '../../domain/guild/guild.js';
 import type { GuildSettings } from '../../domain/guild/guild-settings.js';
-import { rankTallies } from '../../domain/leaderboard/leaderboard.js';
 import { outcomeOf, type ResultOverride } from '../../domain/scoring/match-outcome.js';
 import { completedRecapGroups, seasonRecapKey, type RecapGroup } from '../../domain/schedule/recap-plan.js';
 import type { GuildId, MatchId } from '../../domain/shared/ids.js';
@@ -11,11 +10,11 @@ import type { Clock } from '../ports/clock.js';
 import type { DispatchLog } from '../ports/dispatch-log.js';
 import type { GuildMessenger, RecapMatchLine } from '../ports/guild-messenger.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
-import type { LeaderboardQuery } from '../ports/leaderboard-query.js';
 import type { Logger } from '../ports/logger.js';
 import type { PredictionRepository } from '../ports/prediction-repository.js';
 import type { PublicationRepository } from '../ports/publication-repository.js';
 import type { ResultOverrideRepository } from '../ports/result-override-repository.js';
+import type { StandingsReader } from '../read-models/standings.js';
 import type { MatchView, WeekView } from '../read-models/views.js';
 
 const DAY_MS = 86_400_000;
@@ -36,7 +35,7 @@ export class SendRecaps {
     private readonly publications: PublicationRepository,
     private readonly calendar: CalendarRepository,
     private readonly predictions: PredictionRepository,
-    private readonly leaderboards: LeaderboardQuery,
+    private readonly standings: StandingsReader,
     private readonly resultOverrides: ResultOverrideRepository,
     private readonly dispatchLog: DispatchLog,
     private readonly messenger: GuildMessenger,
@@ -112,11 +111,9 @@ export class SendRecaps {
     // Nobody predicted these matches: nothing worth posting, but the recap is done.
     if (lines.every((line) => line.predictions === 0)) return;
 
-    const standings = rankTallies(await this.leaderboards.tally(guildId, { matchIds: group.matchIds }));
+    const standings = await this.standings.rank(guildId, { matchIds: group.matchIds });
     const season = seasons.find((candidate) => candidate.weekIds.includes(week.week.id));
-    const seasonStandings = season
-      ? rankTallies(await this.leaderboards.tally(guildId, { seasonIds: [season.id] }))
-      : [];
+    const seasonStandings = season ? await this.standings.rank(guildId, { seasonIds: [season.id] }) : [];
     await this.messenger.sendMatchRecap({
       guildId,
       channelId: settings.channelId,
@@ -138,13 +135,20 @@ export class SendRecaps {
     matches: readonly MatchView[],
     overrides: ReadonlyMap<MatchId, ResultOverride>,
   ): Promise<RecapMatchLine[]> {
-    const predictions = await this.predictions.findByMatches(
-      guildId,
-      matches.map((match) => match.id),
-    );
+    const [predictions, banned] = await Promise.all([
+      this.predictions.findByMatches(
+        guildId,
+        matches.map((match) => match.id),
+      ),
+      this.standings.bannedIds(guildId),
+    ]);
     return matches.map((match) => {
       const judged = predictions.flatMap((prediction) =>
-        prediction.matchId === match.id && prediction.outcome.status === 'scored' ? [prediction.outcome] : [],
+        prediction.matchId === match.id &&
+        prediction.outcome.status === 'scored' &&
+        !banned.has(prediction.userId)
+          ? [prediction.outcome]
+          : [],
       );
       return {
         match,
@@ -183,7 +187,7 @@ export class SendRecaps {
       );
       if (!isSeasonOver(season, resolved, now)) continue;
 
-      const standings = rankTallies(await this.leaderboards.tally(guildId, { seasonIds: [season.id] }));
+      const standings = await this.standings.rank(guildId, { seasonIds: [season.id] });
       if (standings.length > 0) {
         await this.messenger.sendSeasonRecap({
           guildId,

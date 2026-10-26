@@ -3,6 +3,7 @@ import type { PredictionChoice } from '../../domain/prediction/prediction-choice
 import { activeGuild, match, week, weekView } from '../../test-support/builders.js';
 import {
   FixedClock,
+  InMemoryBanRepository,
   InMemoryCalendarRepository,
   InMemoryGuildRepository,
   InMemoryLockOverrideRepository,
@@ -38,6 +39,7 @@ describe('predictions', () => {
   let overrides: InMemoryLockOverrideRepository;
   let locks: LockCalculatorFactory;
   let resultOverrides: InMemoryResultOverrideRepository;
+  let bans: InMemoryBanRepository;
 
   beforeEach(async () => {
     guilds = new InMemoryGuildRepository().add(activeGuild('g1'));
@@ -53,6 +55,7 @@ describe('predictions', () => {
     overrides = new InMemoryLockOverrideRepository();
     locks = new LockCalculatorFactory(calendar, overrides);
     resultOverrides = new InMemoryResultOverrideRepository();
+    bans = new InMemoryBanRepository();
   });
 
   describe('SubmitPrediction', () => {
@@ -61,7 +64,7 @@ describe('predictions', () => {
       choice: PredictionChoice,
       submittedAt = new Date('2026-08-01T13:59:59Z'),
     ) =>
-      new SubmitPrediction(guilds, calendar, predictions, resultOverrides, locks).execute({
+      new SubmitPrediction(guilds, calendar, predictions, resultOverrides, locks, bans).execute({
         guildId: 'g1',
         userId: 'u1',
         matchId,
@@ -140,6 +143,12 @@ describe('predictions', () => {
       guilds.add({ ...activeGuild('g1'), status: 'paused' });
       expect(await submit(1, g2Wins)).toEqual({ ok: false, error: 'guild-not-active' });
     });
+
+    it('refuses banned players', async () => {
+      await bans.ban({ guildId: 'g1', userId: 'u1', bannedBy: 'admin', reason: null, bannedAt: new Date() });
+      expect(await submit(1, g2Wins)).toEqual({ ok: false, error: 'banned' });
+      expect(predictions.predictions).toEqual([]);
+    });
   });
 
   describe('GetPredictionJourney', () => {
@@ -152,6 +161,7 @@ describe('predictions', () => {
         resultOverrides,
         locks,
         clock,
+        bans,
       ).execute(guildId, 'u1', publicationId);
 
     it('lists every match with its state, options and current choice', async () => {
@@ -264,8 +274,10 @@ describe('predictions', () => {
       expect(await journey('g1', 42)).toEqual({ ok: false, error: 'publication-not-found' });
     });
 
-    it('refuses inactive servers', async () => {
+    it('refuses inactive servers and banned players', async () => {
       expect(await journey('nope')).toEqual({ ok: false, error: 'guild-not-active' });
+      await bans.ban({ guildId: 'g1', userId: 'u1', bannedBy: 'admin', reason: null, bannedAt: new Date() });
+      expect(await journey()).toEqual({ ok: false, error: 'banned' });
     });
   });
 });

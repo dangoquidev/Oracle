@@ -1,3 +1,4 @@
+import type { BanRepository } from '../application/ports/ban-repository.js';
 import type {
   CalendarRepository,
   CalendarSnapshot,
@@ -35,11 +36,13 @@ import type {
   Publication,
   PublicationRepository,
 } from '../application/ports/publication-repository.js';
+import type { ScheduleSyncTrigger } from '../application/ports/schedule-sync-trigger.js';
 import type { TeamEmojiStore } from '../application/ports/team-emoji-store.js';
 import type { WeekView } from '../application/read-models/views.js';
 import type { CompetitionSource } from '../domain/competition/competition.js';
 import type { GuildSettings, Locale } from '../domain/guild/guild-settings.js';
 import type { Guild, PauseReason } from '../domain/guild/guild.js';
+import type { PlayerBan } from '../domain/guild/player-ban.js';
 import type { PlayerTally } from '../domain/leaderboard/leaderboard.js';
 import type { LockOverride } from '../domain/lock/lock-override.js';
 import type { Match } from '../domain/match/match.js';
@@ -379,6 +382,38 @@ export class InMemoryLockOverrideRepository implements LockOverrideRepository {
   set(guildId: GuildId, matchIds: readonly MatchId[], override: LockOverride, setBy: UserId): Promise<void> {
     for (const matchId of matchIds) this.overrides.set(`${guildId}:${matchId}`, { ...override, setBy });
     return Promise.resolve();
+  }
+}
+
+export class InMemoryBanRepository implements BanRepository {
+  readonly bans = new Map<string, PlayerBan>();
+
+  ban(ban: PlayerBan): Promise<boolean> {
+    const key = `${ban.guildId}:${ban.userId}`;
+    if (this.bans.has(key)) return Promise.resolve(false);
+    this.bans.set(key, ban);
+    return Promise.resolve(true);
+  }
+  unban(guildId: GuildId, userId: UserId): Promise<boolean> {
+    return Promise.resolve(this.bans.delete(`${guildId}:${userId}`));
+  }
+  isBanned(guildId: GuildId, userId: UserId): Promise<boolean> {
+    return Promise.resolve(this.bans.has(`${guildId}:${userId}`));
+  }
+  bannedIds(guildId: GuildId): Promise<ReadonlySet<UserId>> {
+    return Promise.resolve(
+      new Set([...this.bans.values()].filter((ban) => ban.guildId === guildId).map((ban) => ban.userId)),
+    );
+  }
+}
+
+export class StubSyncTrigger implements ScheduleSyncTrigger {
+  accept = true;
+  requests = 0;
+
+  request(): Promise<boolean> {
+    this.requests += 1;
+    return Promise.resolve(this.accept);
   }
 }
 

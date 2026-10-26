@@ -12,6 +12,7 @@ import { isValidTimeZone } from '../../../domain/shared/time-zone.js';
 import { decodeConfigure } from '../components/custom-id.js';
 import { BRAND_COLOR, type MessageView } from '../components/payload.js';
 import type { DiscordDependencies } from '../dependencies.js';
+import { settingsFailureMessage } from '../embeds/settings.js';
 import { localeFor, messages } from '../i18n/index.js';
 import { defaultSettings } from '../../../domain/guild/guild-settings.js';
 import { keepDefault, next, previous, update, withNotice, type WizardState } from './configure-wizard.js';
@@ -157,16 +158,7 @@ async function confirm(
     return;
   }
 
-  const notice =
-    result.error.kind === 'invalid-settings'
-      ? [
-          t.configure.invalid,
-          ...result.error.errors.map((error) => `• ${t.configure.settingsErrors[error]}`),
-        ].join('\n')
-      : [
-          t.configure.missingPermissions,
-          ...result.error.issues.map((issue) => `• ${t.configure.issues[issue]}`),
-        ].join('\n');
+  const notice = settingsFailureMessage(result.error, t);
   const nextState = withNotice(state, notice);
   deps.wizardSessions.set(interaction.guildId, interaction.user.id, nextState);
   await interaction.editReply(renderWizard(nextState, deps));

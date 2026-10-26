@@ -4,6 +4,7 @@ import type { PredictionOutcome } from '../../domain/scoring/score-prediction.js
 import { activeGuild, match, week, weekView } from '../../test-support/builders.js';
 import {
   FixedClock,
+  InMemoryBanRepository,
   InMemoryCalendarRepository,
   InMemoryGuildRepository,
   InMemoryLeaderboardQuery,
@@ -12,6 +13,7 @@ import {
   InMemoryResultOverrideRepository,
 } from '../../test-support/fakes.js';
 import type { SeasonSummary } from '../ports/calendar-repository.js';
+import { StandingsReader } from '../read-models/standings.js';
 import { GetLeaderboard, type LeaderboardRequest } from './get-leaderboard.js';
 import { GetMyPredictions } from './get-my-predictions.js';
 import { ListSeasons } from './list-seasons.js';
@@ -74,6 +76,7 @@ describe('leaderboards', () => {
   let calendar: InMemoryCalendarRepository;
   let predictions: InMemoryPredictionRepository;
   let clock: FixedClock;
+  let bans: InMemoryBanRepository;
 
   const predict = async (userId: string, matchId: number, outcome: PredictionOutcome, guildId = 'g1') => {
     await predictions.save({
@@ -113,6 +116,7 @@ describe('leaderboards', () => {
     );
     predictions = new InMemoryPredictionRepository();
     clock = new FixedClock(new Date('2026-08-02T12:00:00Z'));
+    bans = new InMemoryBanRepository();
 
     await predict('alice', 1, scored(3, true));
     await predict('bob', 1, scored(1));
@@ -131,7 +135,7 @@ describe('leaderboards', () => {
       new GetLeaderboard(
         guilds,
         calendar,
-        new InMemoryLeaderboardQuery(predictions, calendar),
+        new StandingsReader(new InMemoryLeaderboardQuery(predictions, calendar), bans),
         COMPETITIONS,
         clock,
       ).execute({
@@ -192,6 +196,21 @@ describe('leaderboards', () => {
       const worlds = await board({ period: 'alltime', competitionId: 'worlds' });
       expect(worlds.ok && worlds.value.entries.map((entry) => entry.userId)).toEqual(['alice']);
       expect(worlds.ok && worlds.value.scopes).toEqual([{ competitionName: 'Worlds', label: null }]);
+    });
+
+    it('leaves banned players out of the ranking', async () => {
+      await bans.ban({
+        guildId: 'g1',
+        userId: 'alice',
+        bannedBy: 'admin',
+        reason: null,
+        bannedAt: new Date(),
+      });
+      const result = await board({ period: 'alltime' });
+      expect(result.ok && result.value.entries.map((entry) => [entry.userId, entry.rank])).toEqual([
+        ['bob', 1],
+        ['carol', 2],
+      ]);
     });
 
     it('has nothing to rank before a period starts', async () => {

@@ -10,6 +10,7 @@ import { seedCompetitions } from '../../../src/infrastructure/repositories/compe
 
 export interface TestDatabase {
   readonly handle: DatabaseHandle;
+  readonly connectionString: string;
   /** Empties every table but the competition catalog. */
   reset(): Promise<void>;
   stop(): Promise<void>;
@@ -23,9 +24,10 @@ export async function startTestDatabase(): Promise<TestDatabase> {
 
   return {
     handle,
+    connectionString: container.getConnectionUri(),
     reset: async () => {
       await handle.db.execute(
-        sql`truncate result_overrides, dispatch_log, lock_overrides, publication_weeks, publications, predictions, guild_competitions, guilds, matches, weeks, teams, tournaments, seasons restart identity cascade`,
+        sql`truncate player_bans, result_overrides, dispatch_log, lock_overrides, publication_weeks, publications, predictions, guild_competitions, guilds, matches, weeks, teams, tournaments, seasons restart identity cascade`,
       );
     },
     stop: async () => {

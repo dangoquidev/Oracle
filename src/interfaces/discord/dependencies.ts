@@ -11,10 +11,16 @@ import type { LeaveGuild } from '../../application/use-cases/leave-guild.js';
 import type { ListLockTargets } from '../../application/use-cases/list-lock-targets.js';
 import type { ListSeasons } from '../../application/use-cases/list-seasons.js';
 import type { ListWeekMatches } from '../../application/use-cases/list-week-matches.js';
+import type { ManagePlayerBans } from '../../application/use-cases/player-bans.js';
 import type { ReconcileGuilds } from '../../application/use-cases/reconcile-guilds.js';
 import type { RegisterGuild } from '../../application/use-cases/register-guild.js';
+import type { RequestScheduleSync } from '../../application/use-cases/request-schedule-sync.js';
 import type { SetLockOverride } from '../../application/use-cases/set-lock-override.js';
 import type { SubmitPrediction } from '../../application/use-cases/submit-prediction.js';
+import type {
+  GetGuildSettings,
+  UpdateGuildSettings,
+} from '../../application/use-cases/update-guild-settings.js';
 import type { Competition } from '../../domain/competition/competition.js';
 import type { GuildId } from '../../domain/shared/ids.js';
 import type { WizardSessionStore } from './flows/wizard-session-store.js';
@@ -44,5 +50,9 @@ export interface DiscordDependencies {
     readonly getMyPredictions: GetMyPredictions;
     readonly getLeaderboard: GetLeaderboard;
     readonly listSeasons: ListSeasons;
+    readonly getGuildSettings: GetGuildSettings;
+    readonly updateGuildSettings: UpdateGuildSettings;
+    readonly managePlayerBans: ManagePlayerBans;
+    readonly requestScheduleSync: RequestScheduleSync;
   };
 }

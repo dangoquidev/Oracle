@@ -245,3 +245,18 @@ export const resultOverrides = pgTable(
   },
   (table) => [primaryKey({ columns: [table.guildId, table.matchId] })],
 );
+
+/** Players excluded from a server's game by an admin (their predictions are kept). */
+export const playerBans = pgTable(
+  'player_bans',
+  {
+    guildId: text('guild_id')
+      .notNull()
+      .references(() => guilds.id),
+    userId: text('user_id').notNull(),
+    bannedBy: text('banned_by').notNull(),
+    reason: text('reason'),
+    bannedAt: timestamptz('banned_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.guildId, table.userId] })],
+);

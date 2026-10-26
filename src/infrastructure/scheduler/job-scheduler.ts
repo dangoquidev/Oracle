@@ -60,6 +60,14 @@ export class JobScheduler {
     await this.boss.send(name, null);
   }
 
+  /**
+   * Queues an immediate run at most once per `seconds`. Returns false when throttled, or when a run
+   * is already queued or running.
+   */
+  async triggerThrottled(name: string, seconds: number): Promise<boolean> {
+    return (await this.boss.sendThrottled(name, null, null, seconds, 'manual')) !== null;
+  }
+
   async stop(): Promise<void> {
     await this.boss.stop({ graceful: true, timeout: 20_000 });
   }

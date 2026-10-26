@@ -6,6 +6,7 @@ import type { MatchOutcome } from '../../domain/scoring/match-outcome.js';
 import type { PredictionOutcome } from '../../domain/scoring/score-prediction.js';
 import type { GuildId, UserId } from '../../domain/shared/ids.js';
 import { err, ok, type Result } from '../../domain/shared/result.js';
+import type { BanRepository } from '../ports/ban-repository.js';
 import type { CalendarRepository } from '../ports/calendar-repository.js';
 import type { Clock } from '../ports/clock.js';
 import type { GuildRepository } from '../ports/guild-repository.js';
@@ -42,7 +43,7 @@ export interface PredictionJourney {
   readonly items: readonly JourneyItem[];
 }
 
-export type PredictionJourneyError = 'guild-not-active' | 'publication-not-found';
+export type PredictionJourneyError = 'guild-not-active' | 'banned' | 'publication-not-found';
 
 /** Everything a user needs to go through a published week match by match. */
 export class GetPredictionJourney {
@@ -54,6 +55,7 @@ export class GetPredictionJourney {
     private readonly resultOverrides: ResultOverrideRepository,
     private readonly locks: LockCalculatorFactory,
     private readonly clock: Clock,
+    private readonly bans: BanRepository,
   ) {}
 
   async execute(
@@ -63,6 +65,7 @@ export class GetPredictionJourney {
   ): Promise<Result<PredictionJourney, PredictionJourneyError>> {
     const guild = await this.guilds.find(guildId);
     if (!guild?.settings || accessOf(guild) !== 'allowed') return err('guild-not-active');
+    if (await this.bans.isBanned(guildId, userId)) return err('banned');
 
     const publication = await this.publications.find(publicationId);
     if (publication?.guildId !== guildId) return err('publication-not-found');

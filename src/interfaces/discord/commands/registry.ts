@@ -1,6 +1,7 @@
 import type { RESTPostAPIChatInputApplicationCommandsJSONBody } from 'discord.js';
 import type { Competition } from '../../../domain/competition/competition.js';
 import { adminCommand } from './admin-command.js';
+import { configCommand } from './config-command.js';
 import { configureCommand } from './configure-command.js';
 import { leaderboardCommand } from './leaderboard-command.js';
 import { matchesCommand } from './matches-command.js';
@@ -11,6 +12,7 @@ export function commandDefinitions(
 ): RESTPostAPIChatInputApplicationCommandsJSONBody[] {
   return [
     configureCommand.toJSON(),
+    configCommand(competitions).toJSON(),
     matchesCommand(competitions).toJSON(),
     myPredictionsCommand(competitions).toJSON(),
     leaderboardCommand(competitions).toJSON(),

@@ -12,12 +12,14 @@ import { LeaveGuild } from './application/use-cases/leave-guild.js';
 import { ListLockTargets } from './application/use-cases/list-lock-targets.js';
 import { ListSeasons } from './application/use-cases/list-seasons.js';
 import { ListWeekMatches } from './application/use-cases/list-week-matches.js';
+import { ManagePlayerBans } from './application/use-cases/player-bans.js';
 import { LockCalculatorFactory } from './application/use-cases/lock-calculator.js';
 import { PollLiveResults } from './application/use-cases/poll-live-results.js';
 import { PublishDueWeeks } from './application/use-cases/publish-due-weeks.js';
 import { ReconcileGuilds } from './application/use-cases/reconcile-guilds.js';
 import { RefreshAnnouncements } from './application/use-cases/refresh-announcements.js';
 import { RegisterGuild } from './application/use-cases/register-guild.js';
+import { RequestScheduleSync } from './application/use-cases/request-schedule-sync.js';
 import { ScorePredictions } from './application/use-cases/score-predictions.js';
 import { SendLockNotifications } from './application/use-cases/send-lock-notifications.js';
 import { SendRecaps } from './application/use-cases/send-recaps.js';
@@ -25,6 +27,8 @@ import { SetLockOverride } from './application/use-cases/set-lock-override.js';
 import { SubmitPrediction } from './application/use-cases/submit-prediction.js';
 import { SyncSchedule } from './application/use-cases/sync-schedule.js';
 import { SyncTeamEmojis } from './application/use-cases/sync-team-emojis.js';
+import { GetGuildSettings, UpdateGuildSettings } from './application/use-cases/update-guild-settings.js';
+import { StandingsReader } from './application/read-models/standings.js';
 import { COMPETITIONS } from './config/competitions.js';
 import { loadEnv } from './config/env.js';
 import { SystemClock } from './infrastructure/clock/system-clock.js';
@@ -34,6 +38,7 @@ import { LeaguepediaClient } from './infrastructure/leaguepedia/leaguepedia-clie
 import { LeaguepediaProvider } from './infrastructure/leaguepedia/leaguepedia-provider.js';
 import { createLogger } from './infrastructure/logger/pino-logger.js';
 import { seedCompetitions } from './infrastructure/repositories/competition-seeder.js';
+import { DrizzleBanRepository } from './infrastructure/repositories/drizzle-ban-repository.js';
 import { DrizzleCalendarRepository } from './infrastructure/repositories/drizzle-calendar-repository.js';
 import { DrizzleDispatchLog } from './infrastructure/repositories/drizzle-dispatch-log.js';
 import { DrizzleGuildRepository } from './infrastructure/repositories/drizzle-guild-repository.js';
@@ -54,6 +59,8 @@ import { createInteractionRouter } from './interfaces/discord/interaction-router
 
 const MIGRATIONS_FOLDER = fileURLToPath(new URL('../drizzle', import.meta.url));
 const USER_AGENT_VERSION = '0.1.0';
+/** /admin sync hits Leaguepedia for every server: at most one manual run per window. */
+const MANUAL_SYNC_COOLDOWN_SECONDS = 10 * 60;
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -71,7 +78,8 @@ async function main(): Promise<void> {
   const lockOverrides = new DrizzleLockOverrideRepository(database.db);
   const dispatchLog = new DrizzleDispatchLog(database.db);
   const resultOverrides = new DrizzleResultOverrideRepository(database.db);
-  const leaderboards = new DrizzleLeaderboardQuery(database.db);
+  const bans = new DrizzleBanRepository(database.db);
+  const standings = new StandingsReader(new DrizzleLeaderboardQuery(database.db), bans);
   const locks = new LockCalculatorFactory(calendar, lockOverrides);
 
   // ── External services ─────────────────────────────────────────────────────
@@ -131,7 +139,7 @@ async function main(): Promise<void> {
     publications,
     calendar,
     predictions,
-    leaderboards,
+    standings,
     resultOverrides,
     dispatchLog,
     messenger,
@@ -148,6 +156,11 @@ async function main(): Promise<void> {
     COMPETITIONS,
     clock,
   );
+
+  const scheduler = new JobScheduler(env.DATABASE_URL, logger.child({ module: 'scheduler' }));
+  const scheduleSyncTrigger = {
+    request: () => scheduler.triggerThrottled('schedule-sync', MANUAL_SYNC_COOLDOWN_SECONDS),
+  };
 
   const deps: DiscordDependencies = {
     logger,
@@ -166,8 +179,9 @@ async function main(): Promise<void> {
         resultOverrides,
         locks,
         clock,
+        bans,
       ),
-      submitPrediction: new SubmitPrediction(guilds, calendar, predictions, resultOverrides, locks),
+      submitPrediction: new SubmitPrediction(guilds, calendar, predictions, resultOverrides, locks, bans),
       registerGuild,
       leaveGuild,
       handleResourceDeleted,
@@ -184,13 +198,16 @@ async function main(): Promise<void> {
       decideMatchResult: new DecideMatchResult(guilds, calendar, resultOverrides, scorePredictions, clock),
       recalculatePoints: new RecalculatePoints(guilds, scorePredictions),
       getMyPredictions: new GetMyPredictions(listWeekMatches, predictions),
-      getLeaderboard: new GetLeaderboard(guilds, calendar, leaderboards, COMPETITIONS, clock),
+      getLeaderboard: new GetLeaderboard(guilds, calendar, standings, COMPETITIONS, clock),
       listSeasons: new ListSeasons(calendar, COMPETITIONS, clock),
+      getGuildSettings: new GetGuildSettings(guilds),
+      updateGuildSettings: new UpdateGuildSettings(guilds, permissions, COMPETITIONS),
+      managePlayerBans: new ManagePlayerBans(guilds, bans, clock),
+      requestScheduleSync: new RequestScheduleSync(guilds, scheduleSyncTrigger, logger),
     },
   };
 
   // ── Jobs ──────────────────────────────────────────────────────────────────
-  const scheduler = new JobScheduler(env.DATABASE_URL, logger.child({ module: 'scheduler' }));
   const tasks: RecurringTask[] = [
     {
       name: 'schedule-sync',
