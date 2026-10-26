@@ -22,6 +22,13 @@
       "when": 1792960495638,
       "tag": "0002_results_and_scoring",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792967014898,
+      "tag": "0003_points_breakdown",
+      "breakpoints": true
     }
   ]
 }

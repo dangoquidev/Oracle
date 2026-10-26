@@ -28,7 +28,13 @@ export class DrizzlePredictionRepository implements PredictionRepository {
       submittedAt: prediction.submittedAt,
     };
     // A new pick is judged afresh by the next scoring run.
-    const reset = { outcome: 'pending' as const, points: null, scoredAt: null };
+    const reset = {
+      outcome: 'pending' as const,
+      points: null,
+      correctWinner: null,
+      exactScore: null,
+      scoredAt: null,
+    };
     await this.db
       .insert(predictions)
       .values({
@@ -62,7 +68,7 @@ export class DrizzlePredictionRepository implements PredictionRepository {
     return rows.map(toJudgedPrediction);
   }
 
-  async findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<Prediction[]> {
+  async findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]> {
     if (matchIds.length === 0) return [];
     const rows = await this.db
       .select()
@@ -92,11 +98,14 @@ export class DrizzlePredictionRepository implements PredictionRepository {
     await this.db.transaction(async (tx) => {
       for (const batch of chunk(judged, UPDATE_BATCH)) {
         for (const prediction of batch) {
+          const scored = prediction.outcome.status === 'scored' ? prediction.outcome : null;
           await tx
             .update(predictions)
             .set({
               outcome: prediction.outcome.status,
-              points: prediction.outcome.status === 'scored' ? prediction.outcome.points : null,
+              points: scored?.points ?? null,
+              correctWinner: scored?.correctWinner ?? null,
+              exactScore: scored?.exactScore ?? null,
               scoredAt: prediction.outcome.status === 'pending' ? null : at,
             })
             .where(
@@ -133,6 +142,13 @@ function toChoice(row: PredictionRow): PredictionChoice {
 }
 
 function toOutcome(row: PredictionRow): PredictionOutcome {
-  if (row.outcome === 'scored') return { status: 'scored', points: row.points ?? 0 };
+  if (row.outcome === 'scored') {
+    return {
+      status: 'scored',
+      points: row.points ?? 0,
+      correctWinner: row.correctWinner ?? false,
+      exactScore: row.exactScore ?? false,
+    };
+  }
   return { status: row.outcome };
 }

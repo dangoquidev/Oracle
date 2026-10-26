@@ -80,10 +80,10 @@ describe('scoring', () => {
 
       expect(await score.execute()).toBe(4);
 
-      expect(outcomeOf('g1', 'exact', 1)).toEqual({ status: 'scored', points: 3 });
-      expect(outcomeOf('g1', 'winner', 1)).toEqual({ status: 'scored', points: 1 });
-      expect(outcomeOf('g1', 'wrong', 1)).toEqual({ status: 'scored', points: 0 });
-      expect(outcomeOf('g1', 'worlds', 3)).toEqual({ status: 'scored', points: 2 });
+      expect(outcomeOf('g1', 'exact', 1)).toMatchObject({ status: 'scored', points: 3 });
+      expect(outcomeOf('g1', 'winner', 1)).toMatchObject({ status: 'scored', points: 1 });
+      expect(outcomeOf('g1', 'wrong', 1)).toMatchObject({ status: 'scored', points: 0 });
+      expect(outcomeOf('g1', 'worlds', 3)).toMatchObject({ status: 'scored', points: 2 });
       expect(outcomeOf('g1', 'early', 2)).toEqual({ status: 'pending' });
     });
 
@@ -102,7 +102,7 @@ describe('scoring', () => {
 
       await score.execute();
 
-      expect(outcomeOf('g1', 'u', 1)).toEqual({ status: 'scored', points: 0 });
+      expect(outcomeOf('g1', 'u', 1)).toMatchObject({ status: 'scored', points: 0 });
       expect(outcomeOf('g2', 'u', 1)).toEqual({ status: 'void' });
     });
 
@@ -118,7 +118,7 @@ describe('scoring', () => {
       calendar.matches.push({ ...finished, id: 4, competitionId: 'lck' });
       await vote('g1', 'u', 4, twoOne);
       await score.execute();
-      expect(outcomeOf('g1', 'u', 4)).toEqual({ status: 'scored', points: 3 });
+      expect(outcomeOf('g1', 'u', 4)).toMatchObject({ status: 'scored', points: 3 });
     });
   });
 
@@ -144,7 +144,7 @@ describe('scoring', () => {
         'Week 1',
         1,
       ]);
-      expect(outcomeOf('g1', 'u', 1)).toEqual({ status: 'scored', points: 3 });
+      expect(outcomeOf('g1', 'u', 1)).toMatchObject({ status: 'scored', points: 3 });
     });
 
     it('cancels a match, then restores the provider result', async () => {
@@ -153,7 +153,7 @@ describe('scoring', () => {
       expect(outcomeOf('g1', 'u', 1)).toEqual({ status: 'void' });
 
       await decide.execute('g1', 'admin', 1, { kind: 'provider' });
-      expect(outcomeOf('g1', 'u', 1)).toEqual({ status: 'scored', points: 3 });
+      expect(outcomeOf('g1', 'u', 1)).toMatchObject({ status: 'scored', points: 3 });
       expect(overrides.overrides.size).toBe(0);
     });
 
@@ -247,7 +247,7 @@ describe('scoring', () => {
       await vote('g1', 'u', 1, twoOne);
 
       expect(await poll.execute()).toBe(true);
-      expect(outcomeOf('g1', 'u', 1)).toEqual({ status: 'scored', points: 3 });
+      expect(outcomeOf('g1', 'u', 1)).toMatchObject({ status: 'scored', points: 3 });
     });
 
     it('scores even when the provider fails', async () => {
@@ -257,7 +257,7 @@ describe('scoring', () => {
       provider.failingLeagues.add('Worlds');
       await vote('g1', 'u', 1, twoOne);
       await expect(poll.execute()).rejects.toThrow();
-      expect(outcomeOf('g1', 'u', 1)).toEqual({ status: 'scored', points: 3 });
+      expect(outcomeOf('g1', 'u', 1)).toMatchObject({ status: 'scored', points: 3 });
     });
   });
 });

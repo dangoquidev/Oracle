@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SCORING } from '../competition/scoring.js';
 import type { PredictionChoice } from '../prediction/prediction-choice.js';
 import { outcomeOf } from './match-outcome.js';
-import { judgePrediction, pointsFor, sameOutcome } from './score-prediction.js';
+import { judgePrediction, pointsFor, sameOutcome, scoreChoice } from './score-prediction.js';
 
 const winner = (side: 1 | 2): PredictionChoice => ({ kind: 'winner', winner: side });
 const score = (team1: number, team2: number): PredictionChoice => ({
@@ -65,12 +65,31 @@ describe('judgePrediction', () => {
     expect(judgePrediction(winner(1), { kind: 'decided', result: result(1) }, DEFAULT_SCORING)).toEqual({
       status: 'scored',
       points: 1,
+      correctWinner: true,
+      exactScore: false,
+    });
+  });
+
+  it('records whether the winner and the exact score were right', () => {
+    expect(scoreChoice(score(2, 1), result(1, 2, 1), DEFAULT_SCORING)).toEqual({
+      status: 'scored',
+      points: 3,
+      correctWinner: true,
+      exactScore: true,
+    });
+    expect(scoreChoice(score(1, 2), result(1, 2, 1), DEFAULT_SCORING)).toMatchObject({
+      points: 0,
+      correctWinner: false,
+      exactScore: false,
     });
   });
 
   it('compares outcomes', () => {
-    expect(sameOutcome({ status: 'scored', points: 1 }, { status: 'scored', points: 1 })).toBe(true);
-    expect(sameOutcome({ status: 'scored', points: 1 }, { status: 'scored', points: 3 })).toBe(false);
+    const one = { status: 'scored', points: 1, correctWinner: true, exactScore: false } as const;
+    expect(sameOutcome(one, { ...one })).toBe(true);
+    expect(sameOutcome(one, { ...one, points: 3 })).toBe(false);
+    expect(sameOutcome(one, { ...one, exactScore: true })).toBe(false);
+    expect(sameOutcome(one, { status: 'void' })).toBe(false);
     expect(sameOutcome({ status: 'void' }, { status: 'void' })).toBe(true);
     expect(sameOutcome({ status: 'void' }, { status: 'pending' })).toBe(false);
   });

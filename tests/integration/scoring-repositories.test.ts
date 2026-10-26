@@ -7,6 +7,8 @@ import { DrizzleResultOverrideRepository } from '../../src/infrastructure/reposi
 import { startTestDatabase, type TestDatabase } from './support/database.js';
 import { lecSnapshot, snapshotMatch } from './support/snapshots.js';
 
+const exact = { status: 'scored', points: 3, correctWinner: true, exactScore: true } as const;
+
 describe('scoring persistence', () => {
   let database: TestDatabase;
   let calendar: DrizzleCalendarRepository;
@@ -121,15 +123,12 @@ describe('scoring persistence', () => {
       ]);
       await predictions.saveOutcomes(
         [
-          { guildId: 'g1', userId: 'u', matchId: played, outcome: { status: 'scored', points: 3 } },
+          { guildId: 'g1', userId: 'u', matchId: played, outcome: exact },
           { guildId: 'g2', userId: 'u', matchId: played, outcome: { status: 'void' } },
         ],
         new Date('2026-07-25T00:00:00Z'),
       );
-      expect((await predictions.findByUser('g1', 'u', [played]))[0]?.outcome).toEqual({
-        status: 'scored',
-        points: 3,
-      });
+      expect((await predictions.findByUser('g1', 'u', [played]))[0]?.outcome).toEqual(exact);
       expect((await predictions.findForScoring([played], 'g2')).map((p) => p.outcome)).toEqual([
         { status: 'void' },
       ]);
@@ -156,7 +155,7 @@ describe('scoring persistence', () => {
         submittedAt: new Date('2026-07-25T00:00:00Z'),
       });
       await predictions.saveOutcomes(
-        [{ guildId: 'g1', userId: 'u', matchId: live, outcome: { status: 'scored', points: 1 } }],
+        [{ guildId: 'g1', userId: 'u', matchId: live, outcome: { ...exact, points: 1, exactScore: false } }],
         new Date('2026-07-24T23:00:00Z'),
       );
       expect((await predictions.findByUser('g1', 'u', [live]))[0]?.outcome).toEqual({ status: 'pending' });

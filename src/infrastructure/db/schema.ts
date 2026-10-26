@@ -157,9 +157,15 @@ export const predictions = pgTable(
       .notNull()
       .default('pending'),
     points: integer('points'),
+    correctWinner: boolean('correct_winner'),
+    exactScore: boolean('exact_score'),
     scoredAt: timestamptz('scored_at'),
   },
-  (table) => [unique().on(table.guildId, table.userId, table.matchId), index().on(table.matchId)],
+  (table) => [
+    unique().on(table.guildId, table.userId, table.matchId),
+    index().on(table.matchId),
+    index().on(table.guildId, table.outcome),
+  ],
 );
 
 export const publications = pgTable('publications', {

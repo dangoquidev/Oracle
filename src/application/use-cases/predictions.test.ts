@@ -227,7 +227,14 @@ describe('predictions', () => {
         submittedAt: new Date(),
       });
       await predictions.saveOutcomes(
-        [{ guildId: 'g1', userId: 'u1', matchId: 4, outcome: { status: 'scored', points: 1 } }],
+        [
+          {
+            guildId: 'g1',
+            userId: 'u1',
+            matchId: 4,
+            outcome: { status: 'scored', points: 1, correctWinner: true, exactScore: false },
+          },
+        ],
         new Date(),
       );
       const result = await journey();
@@ -235,7 +242,7 @@ describe('predictions', () => {
       expect(result.value.items[3]).toMatchObject({
         state: 'closed',
         outcome: { kind: 'decided', result: { winner: 1, score: null } },
-        judgement: { status: 'scored', points: 1 },
+        judgement: { status: 'scored', points: 1, correctWinner: true, exactScore: false },
       });
     });
 

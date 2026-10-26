@@ -127,7 +127,7 @@ describe('prediction journey view', () => {
       state: 'closed',
       current: { kind: 'winner', winner: 1 },
       outcome: { kind: 'decided', result: { winner: 1, score: null } },
-      judgement: { status: 'scored', points: 1 },
+      judgement: { status: 'scored', points: 1, correctWinner: true, exactScore: false },
     });
     const fields = renderJourneyStep(journey([played]), 0, 'fr', false).embeds[0]?.toJSON().fields ?? [];
     expect(fields.slice(-2)).toEqual([
@@ -148,7 +148,7 @@ describe('prediction journey view', () => {
       state: 'closed',
       current: { kind: 'winner', winner: 2 },
       outcome: { kind: 'decided', result: { winner: 1, score: null } },
-      judgement: { status: 'scored', points: 0 },
+      judgement: { status: 'scored', points: 0, correctWinner: false, exactScore: false },
       distribution: { total: 0, team1Percent: 0, team2Percent: 0, topScore: null },
     });
     expect(renderJourneySummary(journey([wrong]), 'fr', false).embeds[0]?.toJSON().description).toContain(
