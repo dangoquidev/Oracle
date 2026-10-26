@@ -41,7 +41,10 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 3. Le calendrier est synchronisé depuis Leaguepedia toutes les 6 h. Une **semaine** correspond à un onglet du calendrier
    Leaguepedia (« Week 3 », « Round 2 », « Quarterfinals »…). Une **journée** correspond à son `MatchDay`.
 4. Au créneau de publication (mardi 10:00 par défaut), le bot publie les semaines qui commencent avant le prochain créneau.
-   Il mentionne le rôle et ajoute un bouton « Faire mes pronos ».
+   Il mentionne le rôle et ajoute un bouton « Faire mes pronos ». Une semaine dont les affiches ne sont pas encore toutes
+   connues (rondes suisses des Worlds, playoffs) est publiée **jour par jour** : chaque journée part dès que Leaguepedia
+   donne ses affiches, ou 24 h avant son premier match avec ce qui est connu (les matchs encore à déterminer s'ouvrent au
+   vote dans la même annonce dès qu'ils sont connus).
 5. Le bouton ouvre un parcours éphémère match par match : vainqueur pour un Bo1, score exact pour un Bo3/Bo5.
    Les pronos sont modifiables jusqu'à la fermeture des votes. Un vote compte si l'interaction Discord est antérieure au lock.
 6. Si les rappels sont activés, le bot mentionne le rôle X minutes avant chaque fermeture des votes (une fois par groupe de
