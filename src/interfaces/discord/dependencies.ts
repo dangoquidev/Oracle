@@ -4,6 +4,7 @@ import type { CheckGuildAccess } from '../../application/use-cases/check-guild-a
 import type { ConfigureGuild } from '../../application/use-cases/configure-guild.js';
 import type { GetConfigurationDraft } from '../../application/use-cases/get-configuration-draft.js';
 import type { GetLeaderboard } from '../../application/use-cases/get-leaderboard.js';
+import type { GetPlayerStats } from '../../application/use-cases/get-player-stats.js';
 import type { GetMyPredictions } from '../../application/use-cases/get-my-predictions.js';
 import type { GetPredictionJourney } from '../../application/use-cases/get-prediction-journey.js';
 import type { HandleResourceDeleted } from '../../application/use-cases/handle-resource-deleted.js';
@@ -54,5 +55,6 @@ export interface DiscordDependencies {
     readonly updateGuildSettings: UpdateGuildSettings;
     readonly managePlayerBans: ManagePlayerBans;
     readonly requestScheduleSync: RequestScheduleSync;
+    readonly getPlayerStats: GetPlayerStats;
   };
 }

@@ -13,6 +13,7 @@ describe('command definitions', () => {
       'matches',
       'mypronos',
       'leaderboard',
+      'stats',
       'admin',
     ]);
   });
@@ -133,5 +134,17 @@ describe('command definitions', () => {
     ]);
     expect(ban?.options?.[1]?.max_length).toBe(200);
     expect(subcommands.find((sub) => sub.name === 'sync')?.options ?? []).toEqual([]);
+  });
+
+  it('lets players look up someone else in /stats', () => {
+    const options = (byName.get('stats')?.options ?? []) as {
+      name: string;
+      name_localizations?: Record<string, string>;
+      required?: boolean;
+    }[];
+    expect(
+      options.map((option) => [option.name, option.name_localizations?.fr, option.required ?? false]),
+    ).toEqual([['user', 'joueur', false]]);
+    expect(byName.get('stats')?.default_member_permissions).toBeUndefined();
   });
 });

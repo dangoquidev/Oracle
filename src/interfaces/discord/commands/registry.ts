@@ -6,6 +6,7 @@ import { configureCommand } from './configure-command.js';
 import { leaderboardCommand } from './leaderboard-command.js';
 import { matchesCommand } from './matches-command.js';
 import { myPredictionsCommand } from './mypronos-command.js';
+import { statsCommand } from './stats-command.js';
 
 export function commandDefinitions(
   competitions: readonly Competition[],
@@ -16,6 +17,7 @@ export function commandDefinitions(
     matchesCommand(competitions).toJSON(),
     myPredictionsCommand(competitions).toJSON(),
     leaderboardCommand(competitions).toJSON(),
+    statsCommand().toJSON(),
     adminCommand().toJSON(),
   ];
 }

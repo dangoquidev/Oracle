@@ -105,6 +105,28 @@ export const en: Messages = {
     seasonIntro: 'It is over! Here are the final standings:',
     champion: (players: string) => `Congratulations ${players} 👑`,
   },
+  stats: {
+    title: (name: string) => `📊 ${name}'s stats`,
+    ranking: 'Rankings',
+    allTime: 'All time',
+    rank: (rank: number, players: number) => `**${ordinal(rank)}** / ${players}`,
+    predictions: 'Predictions',
+    judged: (count: number) => `${count} judged prediction${count > 1 ? 's' : ''}`,
+    winners: (correct: number, total: number, percent: number) =>
+      `✅ Right winners: **${correct}/${total}** (${percent}%)`,
+    exact: (exact: number, total: number, percent: number) =>
+      `🎯 Exact scores: **${exact}/${total}** Bo3/Bo5 (${percent}%)`,
+    streaks: 'Right-winner streaks',
+    streakLine: (current: number, best: number) => `🔥 Current: **${current}** · Best: **${best}**`,
+    bestWeek: 'Best week',
+    favouriteTeam: 'Favourite team',
+    favouriteLine: (team: string, picks: number, percent: number) =>
+      `${team} · picked to win ${picks} time${picks > 1 ? 's' : ''}, ${percent}% right`,
+    byCompetition: 'By competition',
+    empty: 'No judged prediction on this server yet.',
+    banned: '⛔ Banned from predictions on this server: left out of the leaderboards.',
+    bot: 'Bots do not take part in predictions.',
+  },
   matches: {
     title: (competition: string, week: string) => `${competition} · ${week}`,
     empty: 'No week found for that period.',
@@ -303,6 +325,10 @@ export const en: Messages = {
       competition: 'Only this competition',
       season: 'A past split or tournament',
     },
+    stats: {
+      description: 'View a player’s stats (yours by default)',
+      user: 'Player',
+    },
     mypronos: {
       description: 'See your picks, results and points for the week',
       week: 'Which week',
@@ -356,3 +382,9 @@ export const en: Messages = {
     },
   },
 };
+
+function ordinal(rank: number): string {
+  const lastTwo = rank % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${rank}th`;
+  return `${rank}${{ 1: 'st', 2: 'nd', 3: 'rd' }[rank % 10] ?? 'th'}`;
+}

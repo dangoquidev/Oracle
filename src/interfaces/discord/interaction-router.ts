@@ -13,6 +13,7 @@ import { handleConfigureCommand } from './commands/configure-command.js';
 import { handleLeaderboardAutocomplete, handleLeaderboardCommand } from './commands/leaderboard-command.js';
 import { handleMatchesCommand } from './commands/matches-command.js';
 import { handleMyPredictionsCommand } from './commands/mypronos-command.js';
+import { handleStatsCommand } from './commands/stats-command.js';
 import { CONFIGURE_SCOPE, PREDICTION_SCOPE } from './components/custom-id.js';
 import type { DiscordDependencies } from './dependencies.js';
 import { handleConfigureInteraction } from './flows/configure-wizard-handler.js';
@@ -42,6 +43,7 @@ const GATED_COMMANDS: Readonly<Record<string, CommandHandler>> = {
   matches: handleMatchesCommand,
   mypronos: handleMyPredictionsCommand,
   leaderboard: handleLeaderboardCommand,
+  stats: handleStatsCommand,
   admin: handleAdminCommand,
 };
 

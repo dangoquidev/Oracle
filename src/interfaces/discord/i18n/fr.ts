@@ -102,6 +102,28 @@ export const fr = {
     seasonIntro: 'C’est terminé ! Voici le classement final :',
     champion: (players: string) => `Bravo à ${players} 👑`,
   },
+  stats: {
+    title: (name: string) => `📊 Stats de ${name}`,
+    ranking: 'Classements',
+    allTime: 'All time',
+    rank: (rank: number, players: number) => `**${rank === 1 ? '1er' : `${rank}e`}** / ${players}`,
+    predictions: 'Pronos',
+    judged: (count: number) => `${count} prono${count > 1 ? 's' : ''} noté${count > 1 ? 's' : ''}`,
+    winners: (correct: number, total: number, percent: number) =>
+      `✅ Bons vainqueurs : **${correct}/${total}** (${percent} %)`,
+    exact: (exact: number, total: number, percent: number) =>
+      `🎯 Scores exacts : **${exact}/${total}** Bo3/Bo5 (${percent} %)`,
+    streaks: 'Séries de bons vainqueurs',
+    streakLine: (current: number, best: number) => `🔥 En cours : **${current}** · Record : **${best}**`,
+    bestWeek: 'Meilleure semaine',
+    favouriteTeam: 'Équipe favorite',
+    favouriteLine: (team: string, picks: number, percent: number) =>
+      `${team} · pronostiquée gagnante ${picks} fois, ${percent} % de réussite`,
+    byCompetition: 'Par compétition',
+    empty: 'Pas encore de prono noté sur ce serveur.',
+    banned: '⛔ Exclu des pronos sur ce serveur : n’apparaît pas dans les classements.',
+    bot: 'Les bots ne participent pas aux pronos.',
+  },
   matches: {
     title: (competition: string, week: string) => `${competition} · ${week}`,
     empty: 'Aucune semaine trouvée pour cette période.',
@@ -304,6 +326,10 @@ export const fr = {
       periodChoices: { week: 'Semaine', season: 'Split / tournoi', alltime: 'All time' },
       competition: 'Filtrer sur une compétition',
       season: 'Un split ou tournoi passé',
+    },
+    stats: {
+      description: 'Voir les stats d’un joueur (les tiennes par défaut)',
+      user: 'Joueur',
     },
     mypronos: {
       description: 'Voir tes pronos, résultats et points de la semaine',

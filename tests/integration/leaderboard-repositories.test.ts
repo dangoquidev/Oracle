@@ -148,6 +148,18 @@ describe('leaderboard persistence', () => {
     expect(await leaderboards.tally('g1', { matchIds: [] })).toEqual([]);
   });
 
+  it('finds the judged predictions of one player', async () => {
+    await predict('g1', 'alice', ids.spring, scored(3, true));
+    await predict('g1', 'alice', ids.summer1, { status: 'void' });
+    await predict('g1', 'alice', ids.summer2, { status: 'pending' });
+    await predict('g1', 'bob', ids.week2, scored(1));
+    await predict('g2', 'alice', ids.week2, scored(1));
+    const found = await predictions.findScoredByUser('g1', 'alice');
+    expect(found.map((prediction) => [prediction.matchId, prediction.outcome])).toEqual([
+      [ids.spring, scored(3, true)],
+    ]);
+  });
+
   it('persists how each prediction was judged', async () => {
     await predict('g1', 'alice', ids.spring, scored(3, true));
     expect((await predictions.findByMatches('g1', [ids.spring]))[0]?.outcome).toEqual(scored(3, true));

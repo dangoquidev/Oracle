@@ -11,6 +11,8 @@ export interface PredictionRepository {
   /** Creates or replaces the user's prediction on that match (and resets its judgement). */
   save(prediction: Prediction): Promise<void>;
   findByUser(guildId: GuildId, userId: UserId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]>;
+  /** Every prediction of a player on the server that earned points or not (cancelled matches excluded). */
+  findScoredByUser(guildId: GuildId, userId: UserId): Promise<JudgedPrediction[]>;
   /** Every prediction of the server on these matches (only read once votes are closed). */
   findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]>;
   /** Predictions to judge on these matches, for one server or all of them. */

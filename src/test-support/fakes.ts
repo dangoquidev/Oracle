@@ -216,6 +216,13 @@ export class InMemoryPredictionRepository implements PredictionRepository {
       ),
     );
   }
+  findScoredByUser(guildId: GuildId, userId: UserId): Promise<JudgedPrediction[]> {
+    return Promise.resolve(
+      this.predictions.filter(
+        (p) => p.guildId === guildId && p.userId === userId && p.outcome.status === 'scored',
+      ),
+    );
+  }
   findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]> {
     return Promise.resolve(
       this.predictions.filter((p) => p.guildId === guildId && matchIds.includes(p.matchId)),

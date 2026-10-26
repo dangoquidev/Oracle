@@ -68,6 +68,20 @@ export class DrizzlePredictionRepository implements PredictionRepository {
     return rows.map(toJudgedPrediction);
   }
 
+  async findScoredByUser(guildId: GuildId, userId: UserId): Promise<JudgedPrediction[]> {
+    const rows = await this.db
+      .select()
+      .from(predictions)
+      .where(
+        and(
+          eq(predictions.guildId, guildId),
+          eq(predictions.userId, userId),
+          eq(predictions.outcome, 'scored'),
+        ),
+      );
+    return rows.map(toJudgedPrediction);
+  }
+
   async findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]> {
     if (matchIds.length === 0) return [];
     const rows = await this.db

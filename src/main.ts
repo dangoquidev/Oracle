@@ -6,6 +6,7 @@ import { ConfigureGuild } from './application/use-cases/configure-guild.js';
 import { GetConfigurationDraft } from './application/use-cases/get-configuration-draft.js';
 import { GetLeaderboard } from './application/use-cases/get-leaderboard.js';
 import { GetMyPredictions } from './application/use-cases/get-my-predictions.js';
+import { GetPlayerStats } from './application/use-cases/get-player-stats.js';
 import { GetPredictionJourney } from './application/use-cases/get-prediction-journey.js';
 import { HandleResourceDeleted } from './application/use-cases/handle-resource-deleted.js';
 import { LeaveGuild } from './application/use-cases/leave-guild.js';
@@ -204,6 +205,7 @@ async function main(): Promise<void> {
       updateGuildSettings: new UpdateGuildSettings(guilds, permissions, COMPETITIONS),
       managePlayerBans: new ManagePlayerBans(guilds, bans, clock),
       requestScheduleSync: new RequestScheduleSync(guilds, scheduleSyncTrigger, logger),
+      getPlayerStats: new GetPlayerStats(guilds, predictions, calendar, standings, bans, COMPETITIONS, clock),
     },
   };
 
