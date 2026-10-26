@@ -95,6 +95,18 @@ describe('LeaguepediaClient', () => {
     expect(query?.params.get('limit')).toBe('500');
   });
 
+  it('logs in once for requests started together', async () => {
+    // Two jobs starting at boot: a second login on the fresh session would be refused by MediaWiki.
+    const leaguepedia = client();
+    await Promise.all([
+      leaguepedia.cargoQuery({ tables: 'A', fields: 'x' }),
+      leaguepedia.cargoQuery({ tables: 'B', fields: 'y' }),
+    ]);
+    expect(api.loginCount).toBe(1);
+    expect(api.calls.filter((call) => call.params.get('meta') === 'tokens')).toHaveLength(1);
+    expect(api.calls.filter((call) => call.params.get('action') === 'cargoquery')).toHaveLength(2);
+  });
+
   it('passes optional query clauses', async () => {
     await client().cargoQuery({ tables: 'T', fields: 'N', where: "a='b'", joinOn: 'x=y', orderBy: 'N' });
     const query = api.calls.at(-1)?.params;

@@ -70,6 +70,8 @@ export class LeaguepediaClient {
   private queue: Promise<unknown> = Promise.resolve();
   private lastRequestAt = Number.NEGATIVE_INFINITY;
   private loggedIn = false;
+  /** Login in progress, shared by requests started meanwhile (a second login would be refused). */
+  private pendingLogin: Promise<void> | null = null;
 
   constructor(private readonly options: LeaguepediaClientOptions) {
     this.fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
@@ -110,7 +112,7 @@ export class LeaguepediaClient {
   private async call(params: Record<string, string>): Promise<unknown> {
     for (let attempt = 0; ; attempt++) {
       try {
-        if (!this.loggedIn) await this.login();
+        if (!this.loggedIn) await this.ensureLoggedIn();
         const response = await this.send('GET', { ...params, assert: 'user' });
         const error = apiErrorOf(response);
         if (!error) return response;
@@ -129,6 +131,13 @@ export class LeaguepediaClient {
         await this.sleep(delay);
       }
     }
+  }
+
+  private ensureLoggedIn(): Promise<void> {
+    this.pendingLogin ??= this.login().finally(() => {
+      this.pendingLogin = null;
+    });
+    return this.pendingLogin;
   }
 
   private async login(): Promise<void> {
