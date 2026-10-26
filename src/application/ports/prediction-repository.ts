@@ -12,7 +12,7 @@ export interface PredictionRepository {
   save(prediction: Prediction): Promise<void>;
   findByUser(guildId: GuildId, userId: UserId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]>;
   /** Every prediction of the server on these matches (only read once votes are closed). */
-  findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<Prediction[]>;
+  findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]>;
   /** Predictions to judge on these matches, for one server or all of them. */
   findForScoring(matchIds: readonly MatchId[], guildId: GuildId | null): Promise<JudgedPrediction[]>;
   saveOutcomes(

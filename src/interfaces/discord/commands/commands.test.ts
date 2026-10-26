@@ -6,8 +6,25 @@ describe('command definitions', () => {
   const commands = commandDefinitions(COMPETITIONS);
   const byName = new Map(commands.map((command) => [command.name, command]));
 
-  it('registers /configure, /matches and /admin', () => {
-    expect([...byName.keys()]).toEqual(['configure', 'matches', 'admin']);
+  it('registers every command', () => {
+    expect([...byName.keys()]).toEqual(['configure', 'matches', 'mypronos', 'leaderboard', 'admin']);
+  });
+
+  it('lets players pick a period, a competition and a past season for the leaderboard', () => {
+    const options = (byName.get('leaderboard')?.options ?? []) as {
+      name: string;
+      name_localizations?: Record<string, string>;
+      autocomplete?: boolean;
+      choices?: { value: string }[];
+    }[];
+    expect(options.map((option) => [option.name, option.name_localizations?.fr ?? null])).toEqual([
+      ['period', 'periode'],
+      ['competition', null],
+      ['season', 'saison'],
+    ]);
+    expect(options[0]?.choices?.map((choice) => choice.value)).toEqual(['week', 'season', 'alltime']);
+    expect(options[2]?.autocomplete).toBe(true);
+    expect(byName.get('mypronos')?.options?.map((option) => option.name)).toEqual(['week', 'competition']);
   });
 
   it('restricts admin commands to "Manage Server"', () => {

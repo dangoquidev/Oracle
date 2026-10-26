@@ -1,5 +1,6 @@
 import type { BestOf } from '../../domain/match/best-of.js';
 import type { Match, MatchResult, MatchStatus } from '../../domain/match/match.js';
+import type { SeasonPeriod } from '../../domain/competition/season.js';
 import type { PredictionWeek } from '../../domain/schedule/prediction-week.js';
 import type { CompetitionId, MatchId, TeamId, WeekId } from '../../domain/shared/ids.js';
 import type { WeekView } from '../read-models/views.js';
@@ -45,6 +46,11 @@ export interface TeamMissingEmoji {
   readonly logoUrl: string;
 }
 
+/** A season that has at least one scheduled match. */
+export interface SeasonSummary extends SeasonPeriod {
+  readonly weekIds: readonly WeekId[];
+}
+
 export interface CalendarRepository {
   /**
    * Upserts the whole snapshot atomically; provider keys identify existing rows.
@@ -66,4 +72,6 @@ export interface CalendarRepository {
   /** Teams of upcoming matches that have a logo but no emoji yet. */
   findTeamsMissingEmoji(upcomingFrom: Date, limit: number): Promise<TeamMissingEmoji[]>;
   setTeamEmoji(teamId: TeamId, emojiId: string): Promise<void>;
+  /** Seasons of these competitions, oldest first. */
+  findSeasons(competitionIds: readonly CompetitionId[]): Promise<SeasonSummary[]>;
 }

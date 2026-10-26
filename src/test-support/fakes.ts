@@ -1,6 +1,7 @@
 import type {
   CalendarRepository,
   CalendarSnapshot,
+  SeasonSummary,
   TeamMissingEmoji,
 } from '../application/ports/calendar-repository.js';
 import type { Clock } from '../application/ports/clock.js';
@@ -8,9 +9,12 @@ import type { DispatchLog } from '../application/ports/dispatch-log.js';
 import type {
   GuildMessenger,
   LockReminder,
+  MatchRecap,
+  SeasonRecap,
   VoteReveal,
   WeekAnnouncement,
 } from '../application/ports/guild-messenger.js';
+import type { LeaderboardQuery, TallyFilter } from '../application/ports/leaderboard-query.js';
 import type { LockOverrideRepository } from '../application/ports/lock-override-repository.js';
 import type {
   GuildPermissionChecker,
@@ -36,6 +40,7 @@ import type { WeekView } from '../application/read-models/views.js';
 import type { CompetitionSource } from '../domain/competition/competition.js';
 import type { GuildSettings, Locale } from '../domain/guild/guild-settings.js';
 import type { Guild, PauseReason } from '../domain/guild/guild.js';
+import type { PlayerTally } from '../domain/leaderboard/leaderboard.js';
 import type { LockOverride } from '../domain/lock/lock-override.js';
 import type { Match } from '../domain/match/match.js';
 import type { Prediction } from '../domain/prediction/prediction.js';
@@ -133,6 +138,7 @@ export class InMemoryCalendarRepository implements CalendarRepository {
   readonly teamsMissingEmoji: TeamMissingEmoji[] = [];
   readonly emojis = new Map<TeamId, string>();
   readonly knownTeamNames = new Set<string>();
+  readonly seasons: SeasonSummary[] = [];
 
   applySnapshot(snapshot: CalendarSnapshot): Promise<void> {
     this.snapshots.push(snapshot);
@@ -184,6 +190,9 @@ export class InMemoryCalendarRepository implements CalendarRepository {
     this.emojis.set(teamId, emojiId);
     return Promise.resolve();
   }
+  findSeasons(competitionIds: readonly CompetitionId[]): Promise<SeasonSummary[]> {
+    return Promise.resolve(this.seasons.filter((season) => competitionIds.includes(season.competitionId)));
+  }
 }
 
 export class InMemoryPredictionRepository implements PredictionRepository {
@@ -204,7 +213,7 @@ export class InMemoryPredictionRepository implements PredictionRepository {
       ),
     );
   }
-  findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<Prediction[]> {
+  findByMatches(guildId: GuildId, matchIds: readonly MatchId[]): Promise<JudgedPrediction[]> {
     return Promise.resolve(
       this.predictions.filter((p) => p.guildId === guildId && matchIds.includes(p.matchId)),
     );
@@ -231,6 +240,49 @@ export class InMemoryPredictionRepository implements PredictionRepository {
   private indexOf(key: Pick<Prediction, 'guildId' | 'userId' | 'matchId'>): number {
     return this.predictions.findIndex(
       (p) => p.guildId === key.guildId && p.userId === key.userId && p.matchId === key.matchId,
+    );
+  }
+}
+
+/** Sums the fake predictions, locating matches through the fake calendar. */
+export class InMemoryLeaderboardQuery implements LeaderboardQuery {
+  constructor(
+    private readonly predictions: InMemoryPredictionRepository,
+    private readonly calendar: InMemoryCalendarRepository,
+  ) {}
+
+  tally(guildId: GuildId, filter: TallyFilter): Promise<PlayerTally[]> {
+    const tallies = new Map<UserId, PlayerTally>();
+    for (const prediction of this.predictions.predictions) {
+      const { outcome } = prediction;
+      const match = this.calendar.matches.find((candidate) => candidate.id === prediction.matchId);
+      if (prediction.guildId !== guildId || outcome.status !== 'scored' || !match) continue;
+      if (!this.matches(match, filter)) continue;
+      const tally = tallies.get(prediction.userId) ?? {
+        userId: prediction.userId,
+        points: 0,
+        predictions: 0,
+        correctWinners: 0,
+        exactScores: 0,
+      };
+      tallies.set(prediction.userId, {
+        userId: prediction.userId,
+        points: tally.points + outcome.points,
+        predictions: tally.predictions + 1,
+        correctWinners: tally.correctWinners + (outcome.correctWinner ? 1 : 0),
+        exactScores: tally.exactScores + (outcome.exactScore ? 1 : 0),
+      });
+    }
+    return Promise.resolve([...tallies.values()]);
+  }
+
+  private matches(match: Match, filter: TallyFilter): boolean {
+    const season = this.calendar.seasons.find((candidate) => candidate.weekIds.includes(match.weekId));
+    return (
+      (!filter.competitionIds || filter.competitionIds.includes(match.competitionId)) &&
+      (!filter.weekIds || filter.weekIds.includes(match.weekId)) &&
+      (!filter.matchIds || filter.matchIds.includes(match.id)) &&
+      (!filter.seasonIds || (season !== undefined && filter.seasonIds.includes(season.id)))
     );
   }
 }
@@ -349,6 +401,8 @@ export class RecordingMessenger implements GuildMessenger {
   readonly updates: { messageId: string; announcement: WeekAnnouncement }[] = [];
   readonly reminders: LockReminder[] = [];
   readonly reveals: VoteReveal[] = [];
+  readonly matchRecaps: MatchRecap[] = [];
+  readonly seasonRecaps: SeasonRecap[] = [];
   deletedMessages = new Set<string>();
   failWith: Error | null = null;
 
@@ -381,6 +435,16 @@ export class RecordingMessenger implements GuildMessenger {
   revealVotes(reveal: VoteReveal): Promise<void> {
     if (this.failWith) return Promise.reject(this.failWith);
     this.reveals.push(reveal);
+    return Promise.resolve();
+  }
+  sendMatchRecap(recap: MatchRecap): Promise<void> {
+    if (this.failWith) return Promise.reject(this.failWith);
+    this.matchRecaps.push(recap);
+    return Promise.resolve();
+  }
+  sendSeasonRecap(recap: SeasonRecap): Promise<void> {
+    if (this.failWith) return Promise.reject(this.failWith);
+    this.seasonRecaps.push(recap);
     return Promise.resolve();
   }
 }

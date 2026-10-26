@@ -12,6 +12,8 @@ import {
 import type {
   GuildMessenger,
   LockReminder,
+  MatchRecap,
+  SeasonRecap,
   VoteReveal,
   WeekAnnouncement,
 } from '../../../application/ports/guild-messenger.js';
@@ -22,6 +24,7 @@ import type { ChannelId, GuildId } from '../../../domain/shared/ids.js';
 import type { MessageView } from '../components/payload.js';
 import { renderLockReminder, renderVoteReveal } from '../embeds/lock-notices.js';
 import { renderPauseNotice, renderWelcome } from '../embeds/notices.js';
+import { renderMatchRecap, renderSeasonRecap } from '../embeds/recaps.js';
 import { renderWeekAnnouncement } from '../embeds/week-announcement.js';
 
 const WRITE_PERMISSIONS = [
@@ -83,6 +86,17 @@ export class DiscordGuildMessenger implements GuildMessenger {
     const { guild, channel } = await this.publicationChannel(reveal.guildId, reveal.channelId);
     const view = renderVoteReveal(reveal, canUseExternalEmojis(channel, guild));
     await channel.send({ ...toCreateOptions(view), allowedMentions: { parse: [] } });
+  }
+
+  async sendMatchRecap(recap: MatchRecap): Promise<void> {
+    const { guild, channel } = await this.publicationChannel(recap.guildId, recap.channelId);
+    const view = renderMatchRecap(recap, canUseExternalEmojis(channel, guild));
+    await channel.send({ ...toCreateOptions(view), allowedMentions: { parse: [] } });
+  }
+
+  async sendSeasonRecap(recap: SeasonRecap): Promise<void> {
+    const { channel } = await this.publicationChannel(recap.guildId, recap.channelId);
+    await channel.send({ ...toCreateOptions(renderSeasonRecap(recap)), allowedMentions: { parse: [] } });
   }
 
   private async publicationChannel(

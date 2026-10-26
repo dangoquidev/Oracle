@@ -1,6 +1,8 @@
 import type { Locale } from '../../domain/guild/guild-settings.js';
 import type { PauseReason } from '../../domain/guild/guild.js';
+import type { LeaderboardEntry } from '../../domain/leaderboard/leaderboard.js';
 import type { VoteDistribution } from '../../domain/prediction/vote-distribution.js';
+import type { MatchOutcome } from '../../domain/scoring/match-outcome.js';
 import type { ChannelId, GuildId, RoleId } from '../../domain/shared/ids.js';
 import type { MatchView, WeekView } from '../read-models/views.js';
 import type { PublicationId } from './publication-repository.js';
@@ -36,6 +38,42 @@ export interface VoteReveal {
   readonly matches: readonly { readonly match: MatchView; readonly distribution: VoteDistribution }[];
 }
 
+export interface RecapMatchLine {
+  readonly match: MatchView;
+  readonly outcome: MatchOutcome;
+  /** Judged predictions on the match and how many had the right winner. */
+  readonly predictions: number;
+  readonly correctWinners: number;
+}
+
+/** Results and points of a match day or a week, for one competition. */
+export interface MatchRecap {
+  readonly guildId: GuildId;
+  readonly channelId: ChannelId;
+  readonly locale: Locale;
+  readonly kind: 'day' | 'week';
+  readonly competitionName: string;
+  readonly weekName: string;
+  /** First match of the recap, to name the day. */
+  readonly startsAt: Date;
+  readonly timeZone: string;
+  readonly matches: readonly RecapMatchLine[];
+  /** Best players over the recapped matches. */
+  readonly standings: readonly LeaderboardEntry[];
+  readonly season: { readonly name: string; readonly standings: readonly LeaderboardEntry[] } | null;
+}
+
+/** Final standings once a split or tournament is over. */
+export interface SeasonRecap {
+  readonly guildId: GuildId;
+  readonly channelId: ChannelId;
+  readonly locale: Locale;
+  readonly competitionName: string;
+  readonly seasonName: string;
+  readonly standings: readonly LeaderboardEntry[];
+  readonly players: number;
+}
+
 /** Outgoing messages to a server, rendered by the chat platform adapter. */
 export interface GuildMessenger {
   /** Bilingual greeting asking an admin to run the setup. Best effort. */
@@ -50,4 +88,6 @@ export interface GuildMessenger {
   sendLockReminder(reminder: LockReminder): Promise<void>;
   /** Shows how the server voted once votes are closed. */
   revealVotes(reveal: VoteReveal): Promise<void>;
+  sendMatchRecap(recap: MatchRecap): Promise<void>;
+  sendSeasonRecap(recap: SeasonRecap): Promise<void>;
 }

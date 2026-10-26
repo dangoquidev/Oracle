@@ -9,7 +9,9 @@ import {
 import type { GuildAccess } from '../../domain/guild/guild.js';
 import { handleAdminAutocomplete, handleAdminCommand } from './commands/admin-command.js';
 import { handleConfigureCommand } from './commands/configure-command.js';
+import { handleLeaderboardAutocomplete, handleLeaderboardCommand } from './commands/leaderboard-command.js';
 import { handleMatchesCommand } from './commands/matches-command.js';
+import { handleMyPredictionsCommand } from './commands/mypronos-command.js';
 import { CONFIGURE_SCOPE, PREDICTION_SCOPE } from './components/custom-id.js';
 import type { DiscordDependencies } from './dependencies.js';
 import { handleConfigureInteraction } from './flows/configure-wizard-handler.js';
@@ -37,13 +39,16 @@ type CommandHandler = (
 /** Commands that require a configured server (everything but /configure). */
 const GATED_COMMANDS: Readonly<Record<string, CommandHandler>> = {
   matches: handleMatchesCommand,
+  mypronos: handleMyPredictionsCommand,
+  leaderboard: handleLeaderboardCommand,
   admin: handleAdminCommand,
 };
 
 async function route(interaction: Interaction, deps: DiscordDependencies): Promise<void> {
   if (interaction.isAutocomplete()) {
-    if (interaction.inCachedGuild() && interaction.commandName === 'admin')
-      await handleAdminAutocomplete(interaction, deps);
+    if (!interaction.inCachedGuild()) return;
+    if (interaction.commandName === 'admin') await handleAdminAutocomplete(interaction, deps);
+    if (interaction.commandName === 'leaderboard') await handleLeaderboardAutocomplete(interaction, deps);
     return;
   }
   if (!interaction.isRepliable()) return;

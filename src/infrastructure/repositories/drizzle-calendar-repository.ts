@@ -17,6 +17,7 @@ import {
 import type {
   CalendarRepository,
   CalendarSnapshot,
+  SeasonSummary,
   TeamMissingEmoji,
 } from '../../application/ports/calendar-repository.js';
 import type { MatchView, TeamView, WeekView } from '../../application/read-models/views.js';
@@ -282,6 +283,32 @@ export class DrizzleCalendarRepository implements CalendarRepository {
 
   async setTeamEmoji(teamId: TeamId, emojiId: string): Promise<void> {
     await this.db.update(teams).set({ emojiId }).where(eq(teams.id, teamId));
+  }
+
+  async findSeasons(competitionIds: readonly CompetitionId[]): Promise<SeasonSummary[]> {
+    if (competitionIds.length === 0) return [];
+    const rows = await this.db
+      .select({
+        id: seasons.id,
+        competitionId: seasons.competitionId,
+        name: seasons.name,
+        firstMatchAt: min(matches.scheduledAt),
+        lastMatchAt: max(matches.scheduledAt),
+        // Unknown as long as one of its tournaments has no end date.
+        endsOn: sql<
+          string | null
+        >`case when bool_or(${tournaments.endsOn} is null) then null else max(${tournaments.endsOn})::text end`,
+        weekIds: sql<number[]>`array_agg(distinct ${matches.weekId})`,
+      })
+      .from(seasons)
+      .innerJoin(tournaments, eq(tournaments.seasonId, seasons.id))
+      .innerJoin(matches, eq(matches.tournamentId, tournaments.id))
+      .where(inArray(seasons.competitionId, [...competitionIds]))
+      .groupBy(seasons.id)
+      .orderBy(asc(min(matches.scheduledAt)));
+    return rows.flatMap(({ firstMatchAt, lastMatchAt, ...row }) =>
+      firstMatchAt && lastMatchAt ? [{ ...row, firstMatchAt, lastMatchAt }] : [],
+    );
   }
 
   private weekQuery() {

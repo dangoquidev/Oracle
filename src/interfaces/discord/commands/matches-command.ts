@@ -6,12 +6,10 @@ import {
   type ChatInputCommandInteraction,
 } from 'discord.js';
 import type { Competition } from '../../../domain/competition/competition.js';
-import type { WeekOffset } from '../../../domain/schedule/week-navigation.js';
 import type { DiscordDependencies } from '../dependencies.js';
 import { renderWeekMatches } from '../embeds/week-matches.js';
 import { localeFor, messages } from '../i18n/index.js';
-
-const WEEK_OFFSETS: Record<string, WeekOffset> = { previous: -1, current: 0, next: 1 };
+import { addCompetitionOption, addWeekOption, weekOffsetOf } from './command-options.js';
 
 export function matchesCommand(competitions: readonly Competition[]): SlashCommandBuilder {
   const fr = messages('fr').commands.matches;
@@ -21,27 +19,8 @@ export function matchesCommand(competitions: readonly Competition[]): SlashComma
     .setDescription(en.description)
     .setDescriptionLocalizations({ fr: fr.description })
     .setContexts(InteractionContextType.Guild);
-  command.addStringOption((option) =>
-    option
-      .setName('week')
-      .setNameLocalizations({ fr: 'semaine' })
-      .setDescription(en.week)
-      .setDescriptionLocalizations({ fr: fr.week })
-      .addChoices(
-        ...(['current', 'previous', 'next'] as const).map((value) => ({
-          name: en.weekChoices[value],
-          name_localizations: { fr: fr.weekChoices[value] },
-          value,
-        })),
-      ),
-  );
-  command.addStringOption((option) =>
-    option
-      .setName('competition')
-      .setDescription(en.competition)
-      .setDescriptionLocalizations({ fr: fr.competition })
-      .addChoices(...competitions.map((competition) => ({ name: competition.name, value: competition.id }))),
-  );
+  addWeekOption(command, { fr: fr.week, en: en.week });
+  addCompetitionOption(command, competitions, { fr: fr.competition, en: en.competition });
   return command;
 }
 
@@ -49,7 +28,7 @@ export async function handleMatchesCommand(
   interaction: ChatInputCommandInteraction<'cached'>,
   deps: DiscordDependencies,
 ): Promise<void> {
-  const offset = WEEK_OFFSETS[interaction.options.getString('week') ?? 'current'] ?? 0;
+  const offset = weekOffsetOf(interaction.options.getString('week'));
   const competitionId = interaction.options.getString('competition');
   const result = await deps.useCases.listWeekMatches.execute(interaction.guildId, offset, competitionId);
 

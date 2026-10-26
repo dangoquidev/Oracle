@@ -4,10 +4,13 @@ import { DecideMatchResult, RecalculatePoints } from './application/use-cases/ad
 import { CheckGuildAccess } from './application/use-cases/check-guild-access.js';
 import { ConfigureGuild } from './application/use-cases/configure-guild.js';
 import { GetConfigurationDraft } from './application/use-cases/get-configuration-draft.js';
+import { GetLeaderboard } from './application/use-cases/get-leaderboard.js';
+import { GetMyPredictions } from './application/use-cases/get-my-predictions.js';
 import { GetPredictionJourney } from './application/use-cases/get-prediction-journey.js';
 import { HandleResourceDeleted } from './application/use-cases/handle-resource-deleted.js';
 import { LeaveGuild } from './application/use-cases/leave-guild.js';
 import { ListLockTargets } from './application/use-cases/list-lock-targets.js';
+import { ListSeasons } from './application/use-cases/list-seasons.js';
 import { ListWeekMatches } from './application/use-cases/list-week-matches.js';
 import { LockCalculatorFactory } from './application/use-cases/lock-calculator.js';
 import { PollLiveResults } from './application/use-cases/poll-live-results.js';
@@ -17,6 +20,7 @@ import { RefreshAnnouncements } from './application/use-cases/refresh-announceme
 import { RegisterGuild } from './application/use-cases/register-guild.js';
 import { ScorePredictions } from './application/use-cases/score-predictions.js';
 import { SendLockNotifications } from './application/use-cases/send-lock-notifications.js';
+import { SendRecaps } from './application/use-cases/send-recaps.js';
 import { SetLockOverride } from './application/use-cases/set-lock-override.js';
 import { SubmitPrediction } from './application/use-cases/submit-prediction.js';
 import { SyncSchedule } from './application/use-cases/sync-schedule.js';
@@ -33,6 +37,7 @@ import { seedCompetitions } from './infrastructure/repositories/competition-seed
 import { DrizzleCalendarRepository } from './infrastructure/repositories/drizzle-calendar-repository.js';
 import { DrizzleDispatchLog } from './infrastructure/repositories/drizzle-dispatch-log.js';
 import { DrizzleGuildRepository } from './infrastructure/repositories/drizzle-guild-repository.js';
+import { DrizzleLeaderboardQuery } from './infrastructure/repositories/drizzle-leaderboard-query.js';
 import { DrizzleLockOverrideRepository } from './infrastructure/repositories/drizzle-lock-override-repository.js';
 import { DrizzlePredictionRepository } from './infrastructure/repositories/drizzle-prediction-repository.js';
 import { DrizzlePublicationRepository } from './infrastructure/repositories/drizzle-publication-repository.js';
@@ -66,6 +71,7 @@ async function main(): Promise<void> {
   const lockOverrides = new DrizzleLockOverrideRepository(database.db);
   const dispatchLog = new DrizzleDispatchLog(database.db);
   const resultOverrides = new DrizzleResultOverrideRepository(database.db);
+  const leaderboards = new DrizzleLeaderboardQuery(database.db);
   const locks = new LockCalculatorFactory(calendar, lockOverrides);
 
   // ── External services ─────────────────────────────────────────────────────
@@ -120,6 +126,29 @@ async function main(): Promise<void> {
     logger,
   );
 
+  const sendRecaps = new SendRecaps(
+    guilds,
+    publications,
+    calendar,
+    predictions,
+    leaderboards,
+    resultOverrides,
+    dispatchLog,
+    messenger,
+    COMPETITIONS,
+    clock,
+    logger,
+  );
+  const listWeekMatches = new ListWeekMatches(
+    guilds,
+    calendar,
+    predictions,
+    resultOverrides,
+    locks,
+    COMPETITIONS,
+    clock,
+  );
+
   const deps: DiscordDependencies = {
     logger,
     competitions: COMPETITIONS,
@@ -149,19 +178,14 @@ async function main(): Promise<void> {
         leaveGuild,
         handleResourceDeleted,
       ),
-      listWeekMatches: new ListWeekMatches(
-        guilds,
-        calendar,
-        predictions,
-        resultOverrides,
-        locks,
-        COMPETITIONS,
-        clock,
-      ),
+      listWeekMatches,
       listLockTargets: new ListLockTargets(guilds, calendar, clock),
       setLockOverride: new SetLockOverride(guilds, calendar, lockOverrides, clock),
       decideMatchResult: new DecideMatchResult(guilds, calendar, resultOverrides, scorePredictions, clock),
       recalculatePoints: new RecalculatePoints(guilds, scorePredictions),
+      getMyPredictions: new GetMyPredictions(listWeekMatches, predictions),
+      getLeaderboard: new GetLeaderboard(guilds, calendar, leaderboards, COMPETITIONS, clock),
+      listSeasons: new ListSeasons(calendar, COMPETITIONS, clock),
     },
   };
 
@@ -177,13 +201,25 @@ async function main(): Promise<void> {
         } finally {
           // Competitions that did sync still deserve fresh logos and announcements.
           await scorePredictions.execute();
+          await sendRecaps.executeForAll();
           if (env.EMOJI_GUILD_IDS.length > 0) await syncTeamEmojis.execute();
           await refreshAnnouncements.executeForAll();
         }
       },
     },
-    // Only reaches Leaguepedia while matches are awaiting results.
-    { name: 'results-poll', cron: '*/5 * * * *', run: () => pollLiveResults.execute() },
+    {
+      name: 'results-poll',
+      cron: '*/5 * * * *',
+      run: async () => {
+        // Only reaches Leaguepedia while matches are awaiting results.
+        try {
+          await pollLiveResults.execute();
+        } finally {
+          // Recaps follow scoring, including admin corrections made since the last run.
+          await sendRecaps.executeForAll();
+        }
+      },
+    },
     {
       name: 'guild-tick',
       cron: '* * * * *',

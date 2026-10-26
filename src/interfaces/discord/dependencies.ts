@@ -3,10 +3,13 @@ import type { DecideMatchResult, RecalculatePoints } from '../../application/use
 import type { CheckGuildAccess } from '../../application/use-cases/check-guild-access.js';
 import type { ConfigureGuild } from '../../application/use-cases/configure-guild.js';
 import type { GetConfigurationDraft } from '../../application/use-cases/get-configuration-draft.js';
+import type { GetLeaderboard } from '../../application/use-cases/get-leaderboard.js';
+import type { GetMyPredictions } from '../../application/use-cases/get-my-predictions.js';
 import type { GetPredictionJourney } from '../../application/use-cases/get-prediction-journey.js';
 import type { HandleResourceDeleted } from '../../application/use-cases/handle-resource-deleted.js';
 import type { LeaveGuild } from '../../application/use-cases/leave-guild.js';
 import type { ListLockTargets } from '../../application/use-cases/list-lock-targets.js';
+import type { ListSeasons } from '../../application/use-cases/list-seasons.js';
 import type { ListWeekMatches } from '../../application/use-cases/list-week-matches.js';
 import type { ReconcileGuilds } from '../../application/use-cases/reconcile-guilds.js';
 import type { RegisterGuild } from '../../application/use-cases/register-guild.js';
@@ -38,5 +41,8 @@ export interface DiscordDependencies {
     readonly setLockOverride: SetLockOverride;
     readonly decideMatchResult: DecideMatchResult;
     readonly recalculatePoints: RecalculatePoints;
+    readonly getMyPredictions: GetMyPredictions;
+    readonly getLeaderboard: GetLeaderboard;
+    readonly listSeasons: ListSeasons;
   };
 }
