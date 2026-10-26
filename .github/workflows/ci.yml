@@ -40,6 +40,6 @@ jobs:
         with:
           context: .
           push: false
-          tags: pronobot:ci
+          tags: oracle:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max

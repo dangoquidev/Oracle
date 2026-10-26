@@ -1,0 +1,14 @@
+# Daily PostgreSQL backup of Oracle (see README, "Sauvegardes").
+# Install: sudo cp deploy/oracle-backup.* /etc/systemd/system/ && sudo systemctl enable --now oracle-backup.timer
+[Unit]
+Description=Oracle database backup
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# Adjust to the account that owns the project (member of the "docker" group) and its path.
+User=oracle
+ExecStart=/opt/oracle/scripts/backup.sh
+Nice=10
+IOSchedulingClass=idle

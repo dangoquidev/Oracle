@@ -18,7 +18,7 @@ export const fr = {
     botMissingPermissions: 'Il me manque des permissions pour faire ça dans ce salon. Préviens un admin.',
   },
   pause: {
-    title: 'PronoBot est en pause',
+    title: 'Oracle est en pause',
     'role-deleted': 'Le rôle à mentionner a été supprimé.',
     'channel-deleted': 'Le salon de publication a été supprimé.',
     action: 'Un admin doit relancer `/configure` pour réactiver le bot.',
@@ -209,7 +209,7 @@ export const fr = {
     publicationNotFound: 'Cette publication est introuvable.',
   },
   welcome: {
-    title: 'Salut, moi c’est PronoBot ! 👋',
+    title: 'Salut, moi c’est Oracle ! 👋',
     body:
       'Je permets à votre serveur de pronostiquer les matchs esport League of Legends (Worlds, LEC…) chaque semaine : ' +
       'des points, des classements, et pas d’argent en jeu.',
@@ -299,7 +299,7 @@ export const fr = {
     },
   },
   config: {
-    title: '⚙️ Configuration de PronoBot',
+    title: '⚙️ Configuration d’Oracle',
     status: 'État',
     active: '🟢 Actif',
     paused: (reason: string) => `⏸️ En pause : ${reason}`,
@@ -313,7 +313,7 @@ export const fr = {
     footer: 'Modifie un réglage avec /config <réglage>, ou relance tout l’assistant avec /configure.',
   },
   commands: {
-    configure: { description: 'Configurer PronoBot sur ce serveur (assistant étape par étape)' },
+    configure: { description: 'Configurer Oracle sur ce serveur (assistant étape par étape)' },
     matches: {
       description: 'Voir les matchs de la semaine',
       week: 'Quelle semaine',
@@ -337,7 +337,7 @@ export const fr = {
       competition: 'Filtrer sur une compétition',
     },
     admin: {
-      description: 'Commandes d’administration de PronoBot',
+      description: 'Commandes d’administration d’Oracle',
       open: 'Rouvrir les votes d’une semaine ou d’un match',
       close: 'Fermer les votes d’une semaine ou d’un match',
       result: 'Forcer ou corriger le résultat d’un match',
@@ -354,7 +354,7 @@ export const fr = {
       reason: 'Raison (visible des admins uniquement)',
     },
     config: {
-      description: 'Voir ou modifier un réglage de PronoBot',
+      description: 'Voir ou modifier un réglage d’Oracle',
       show: 'Voir la configuration actuelle',
       channel: 'Changer le salon de publication',
       role: 'Changer le rôle à mentionner',

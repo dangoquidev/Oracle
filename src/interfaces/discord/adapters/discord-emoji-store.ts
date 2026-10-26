@@ -21,7 +21,7 @@ export class DiscordEmojiStore implements TeamEmojiStore {
 
   async create(name: string, imageUrl: string): Promise<string> {
     const host = await this.hostWithFreeSlot();
-    const emoji = await host.emojis.create({ attachment: imageUrl, name, reason: 'PronoBot team logo' });
+    const emoji = await host.emojis.create({ attachment: imageUrl, name, reason: 'Oracle team logo' });
     return emoji.id;
   }
 

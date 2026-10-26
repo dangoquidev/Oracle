@@ -1,4 +1,7 @@
-# PronoBot
+# Oracle
+
+[![CI](https://github.com/dangoquidev/Oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/dangoquidev/Oracle/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Bot Discord de pronostics sur les matchs esport League of Legends, semaine par semaine.
 Pas d'argent ni de monnaie virtuelle : des points et des classements. Compétitions au lancement : **Worlds** et **LEC**.
@@ -25,6 +28,7 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 - [Exploitation au quotidien](#exploitation-au-quotidien)
 - [Architecture](#architecture)
 - [Ajouter une compétition](#ajouter-une-compétition)
+- [Licence](#licence)
 
 ## Fonctionnement
 
@@ -131,9 +135,9 @@ Les commandes slash sont enregistrées automatiquement au démarrage. Elles sont
 Fandom bride les requêtes Cargo anonymes au point de les rendre inutilisables. Il faut un compte :
 
 1. Créer un compte Fandom et **confirmer l'adresse email** (<https://lol.fandom.com/wiki/Special:Preferences>).
-2. Sur <https://lol.fandom.com/wiki/Special:BotPasswords>, créer un bot (ex. `pronobot`) et cocher
+2. Sur <https://lol.fandom.com/wiki/Special:BotPasswords>, créer un bot (ex. `oracle`) et cocher
    _Create, query and delete data through the Cargo extension_.
-3. Renseigner `LEAGUEPEDIA_BOT_USER=NomDuCompte@pronobot` et `LEAGUEPEDIA_BOT_PASSWORD=<secret généré>`.
+3. Renseigner `LEAGUEPEDIA_BOT_USER=NomDuCompte@oracle` et `LEAGUEPEDIA_BOT_PASSWORD=<secret généré>`.
 
 Le client sérialise les requêtes : une toutes les `LEAGUEPEDIA_MIN_INTERVAL_MS` ms, soit 8 s par défaut. Il vérifie la
 session à chaque appel (`assert=user`) et applique un backoff exponentiel sur les rate limits et les erreurs transitoires.
@@ -161,7 +165,7 @@ Copier `.env.example` vers `.env`. Le fichier `.env` n'est jamais commité.
 | `ALERT_MENTION_USER_ID`                               | non     |                       | Utilisateur mentionné sur les alertes d'erreur                     |
 | `BACKUP_DIR`                                          | non     | `backups`             | Dossier des dumps (relatif au projet ou absolu)                    |
 | `BACKUP_KEEP_DAILY` / `BACKUP_KEEP_WEEKLY`            | non     | `7` / `4`             | Dumps quotidiens / hebdomadaires conservés                         |
-| `BACKUP_RSYNC_TARGET`                                 | non     |                       | Copie hors site par rsync (ex. `user@nas:/srv/backups/pronobot`)   |
+| `BACKUP_RSYNC_TARGET`                                 | non     |                       | Copie hors site par rsync (ex. `user@nas:/srv/backups/oracle`)     |
 | `RESTIC_REPOSITORY` / `RESTIC_PASSWORD_FILE`          | non     |                       | Copie hors site dans un dépôt restic                               |
 
 Les valeurs ne doivent pas contenir de `$` : docker compose l'interpréterait comme une variable (écrire `$$` sinon).
@@ -171,11 +175,13 @@ Les valeurs ne doivent pas contenir de `$` : docker compose l'interpréterait co
 ```bash
 pnpm install
 cp .env.example .env            # puis remplir les valeurs
-docker compose up -d postgres   # base locale (exposez le port 5432 si besoin, cf. ci-dessous)
+cp docker-compose.override.example.yml docker-compose.override.yml   # expose PostgreSQL sur 127.0.0.1:5432
+docker compose up -d postgres   # base locale
 pnpm dev                        # bot en watch mode
 ```
 
-Pour accéder à la base depuis l'hôte, ajouter `ports: ["5432:5432"]` au service `postgres`, ou lancer un conteneur à part.
+Seuls les fichiers `*.example` sont versionnés : `.env` et `docker-compose.override.yml` restent sur ta machine (voir
+`.gitignore`). Avec `pnpm dev`, `DATABASE_URL` doit pointer sur `localhost:5432`.
 
 | Commande                                       | Effet                                                                        |
 | ---------------------------------------------- | ---------------------------------------------------------------------------- |
@@ -208,10 +214,10 @@ Le bot n'ouvre aucun port vers l'extérieur : il se connecte à Discord et à Le
 2. **Créer un compte dédié** et récupérer le projet :
 
    ```bash
-   sudo adduser --disabled-password --gecos '' pronobot
-   sudo usermod -aG docker pronobot
-   sudo mkdir -p /opt/pronobot && sudo chown pronobot: /opt/pronobot
-   sudo -iu pronobot git clone <repo> /opt/pronobot
+   sudo adduser --disabled-password --gecos '' oracle
+   sudo usermod -aG docker oracle
+   sudo mkdir -p /opt/oracle && sudo chown oracle: /opt/oracle
+   sudo -iu oracle git clone <repo> /opt/oracle
    ```
 
 3. **Configurer** : `cp .env.example .env`, puis remplir les tokens, le Bot Password, un `POSTGRES_PASSWORD` solide et,
@@ -220,7 +226,7 @@ Le bot n'ouvre aucun port vers l'extérieur : il se connecte à Discord et à Le
 4. **Démarrer** :
 
    ```bash
-   cd /opt/pronobot
+   cd /opt/oracle
    docker compose up -d --build
    docker compose logs -f bot          # "Connected to Discord", puis "Schedule synced"
    ```
@@ -265,7 +271,7 @@ sur les erreurs. Les secrets ne sont jamais inclus : seuls les champs simples du
 
 Le dossier est en `chmod 700`. Ensuite, si c'est configuré, le script copie les dumps **hors du serveur** :
 
-- `BACKUP_RSYNC_TARGET` : `rsync --archive --delete` vers un NAS ou un autre serveur (clé SSH du compte `pronobot`) ;
+- `BACKUP_RSYNC_TARGET` : `rsync --archive --delete` vers un NAS ou un autre serveur (clé SSH du compte `oracle`) ;
 - `RESTIC_REPOSITORY` + `RESTIC_PASSWORD_FILE` : `restic backup`, puis `restic forget` avec la même rétention
   (initialiser le dépôt une fois avec `restic init`).
 
@@ -273,19 +279,19 @@ Installer rsync et/ou restic sur l'hôte selon le choix (`sudo apt-get install -
 reste sur le même disque ne protège pas d'une panne du serveur : prévoir l'une des deux copies.
 
 Planifier une exécution quotidienne avec le timer systemd fourni (adapter `User` et le chemin dans le `.service` si le
-projet n'est pas dans `/opt/pronobot`) :
+projet n'est pas dans `/opt/oracle`) :
 
 ```bash
-sudo cp deploy/pronobot-backup.service deploy/pronobot-backup.timer /etc/systemd/system/
+sudo cp deploy/oracle-backup.service deploy/oracle-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now pronobot-backup.timer
-sudo systemctl start pronobot-backup.service   # premier essai immédiat
-journalctl -u pronobot-backup -n 20            # résultat
-systemctl list-timers pronobot-backup.timer    # prochaine exécution (04:30)
+sudo systemctl enable --now oracle-backup.timer
+sudo systemctl start oracle-backup.service   # premier essai immédiat
+journalctl -u oracle-backup -n 20            # résultat
+systemctl list-timers oracle-backup.timer    # prochaine exécution (04:30)
 ```
 
-Sans systemd, une ligne de crontab du compte `pronobot` fait la même chose :
-`30 4 * * * /opt/pronobot/scripts/backup.sh >> /opt/pronobot/backups/backup.log 2>&1`.
+Sans systemd, une ligne de crontab du compte `oracle` fait la même chose :
+`30 4 * * * /opt/oracle/scripts/backup.sh >> /opt/oracle/backups/backup.log 2>&1`.
 
 ## Restauration
 
@@ -294,16 +300,16 @@ Sans systemd, une ligne de crontab du compte `pronobot` fait la même chose :
 restaure, puis relance le bot. Celui-ci applique au démarrage les migrations plus récentes que le dump.
 
 ```bash
-cd /opt/pronobot
+cd /opt/oracle
 ls backups/daily backups/weekly
-scripts/restore.sh backups/daily/pronobot-2026-10-26T043000Z.dump   # demande de taper le nom de la base
+scripts/restore.sh backups/daily/oracle-2026-10-26T043000Z.dump   # demande de taper le nom de la base
 ```
 
 `--yes` saute la confirmation (scripts). **Reconstruire un serveur perdu** :
 
 1. Installer Docker, recréer le compte et cloner le projet (étapes 1 et 2 du déploiement).
 2. Remettre le `.env` (gardez-en une copie dans un gestionnaire de mots de passe) et récupérer un dump :
-   `rsync user@nas:/srv/backups/pronobot/daily/<dump> backups/` ou `restic restore latest --target /tmp/restore`.
+   `rsync user@nas:/srv/backups/oracle/daily/<dump> backups/` ou `restic restore latest --target /tmp/restore`.
 3. `docker compose build`, puis `scripts/restore.sh --yes <dump>` : le script démarre PostgreSQL, restaure et lance le bot.
 4. Activer à nouveau le timer de sauvegarde.
 
@@ -318,7 +324,7 @@ Tester une restauration de temps en temps, par exemple sur une machine de test, 
 | Mettre à jour               | `git pull && docker compose up -d --build`                    |
 | Redémarrer le bot           | `docker compose restart bot`                                  |
 | Forcer une synchro          | `/admin sync` sur Discord (une toutes les 10 minutes au plus) |
-| Console SQL                 | `docker compose exec postgres psql -U pronobot pronobot`      |
+| Console SQL                 | `docker compose exec postgres psql -U oracle oracle`          |
 | Lancer une sauvegarde       | `scripts/backup.sh`                                           |
 
 En cas de problème :
@@ -368,6 +374,13 @@ ou `/config competitions`.
 { id: 'lck', name: 'LCK', source: { league: 'LoL Champions Korea' }, scoring: DEFAULT_SCORING }
 ```
 
----
+## Licence
 
-Données : [Leaguepedia](https://lol.fandom.com) (CC BY-SA 3.0). Projet non affilié à Riot Games.
+Code sous licence [MIT](LICENSE).
+
+Les données de matchs viennent de [Leaguepedia](https://lol.fandom.com) (CC BY-SA 3.0) et ne sont pas incluses dans le
+dépôt : le bot les télécharge et crédite la source dans ses messages.
+
+Oracle isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved
+in producing or managing Riot Games properties. Riot Games, League of Legends and all associated properties are
+trademarks or registered trademarks of Riot Games, Inc.

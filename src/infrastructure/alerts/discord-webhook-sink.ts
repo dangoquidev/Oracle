@@ -31,7 +31,7 @@ export class DiscordWebhookSink implements AlertSink {
         inline: name !== 'stack' && name !== 'error' && value.length <= 40,
       }));
     const body = {
-      username: 'PronoBot alerts',
+      username: 'Oracle alerts',
       content: mention ? `<@${mention}>` : undefined,
       allowed_mentions: { users: mention ? [mention] : [] },
       embeds: [

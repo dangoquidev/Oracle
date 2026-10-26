@@ -13,8 +13,8 @@ on_exit() {
   [[ -z "$partial" ]] || rm -f "$partial"
   if [[ $status -ne 0 ]]; then
     log "Backup failed (exit status $status)"
-    send_alert '🔴 PronoBot backup failed' \
-      "scripts/backup.sh exited with status $status. Check the logs (journalctl -u pronobot-backup)."
+    send_alert '🔴 Oracle backup failed' \
+      "scripts/backup.sh exited with status $status. Check the logs (journalctl -u oracle-backup)."
   fi
 }
 trap on_exit EXIT
@@ -27,7 +27,7 @@ mkdir -p "$BACKUP_DIR/daily" "$BACKUP_DIR/weekly"
 chmod 700 "$BACKUP_DIR"
 
 stamp="$(date -u +%Y-%m-%dT%H%M%SZ)"
-file="$BACKUP_DIR/daily/pronobot-$stamp.dump"
+file="$BACKUP_DIR/daily/oracle-$stamp.dump"
 partial="$file.partial"
 
 log "Dumping $DB_NAME…"
@@ -38,7 +38,7 @@ mv "$partial" "$file"
 log "Saved $file ($(du -h "$file" | cut -f1))"
 
 # A weekly copy whenever the latest one is at least 7 days old (robust to missed runs).
-if [[ "$KEEP_WEEKLY" -gt 0 ]] && [[ -z "$(find "$BACKUP_DIR/weekly" -name 'pronobot-*.dump' -mtime -6 -print -quit)" ]]; then
+if [[ "$KEEP_WEEKLY" -gt 0 ]] && [[ -z "$(find "$BACKUP_DIR/weekly" -name 'oracle-*.dump' -mtime -6 -print -quit)" ]]; then
   cp -p "$file" "$BACKUP_DIR/weekly/"
   log "Weekly copy kept"
 fi
@@ -46,7 +46,7 @@ fi
 # Names sort chronologically: keep the newest ones.
 prune() {
   local dir="$1" keep="$2"
-  find "$dir" -maxdepth 1 -name 'pronobot-*.dump' -printf '%f\n' | sort -r | tail -n +"$((keep + 1))" |
+  find "$dir" -maxdepth 1 -name 'oracle-*.dump' -printf '%f\n' | sort -r | tail -n +"$((keep + 1))" |
     while read -r old; do
       rm -f "$dir/$old"
       log "Removed $dir/$old"
@@ -67,8 +67,8 @@ if [[ -n "$restic_repository" ]]; then
   RESTIC_PASSWORD_FILE="$(env_value RESTIC_PASSWORD_FILE)"
   export RESTIC_PASSWORD_FILE
   log "Sending to restic ($RESTIC_REPOSITORY)…"
-  restic backup --quiet --tag pronobot "$BACKUP_DIR"
-  restic forget --quiet --tag pronobot --keep-daily "$KEEP_DAILY" --keep-weekly "$KEEP_WEEKLY" --prune
+  restic backup --quiet --tag oracle "$BACKUP_DIR"
+  restic forget --quiet --tag oracle --keep-daily "$KEEP_DAILY" --keep-weekly "$KEEP_WEEKLY" --prune
 fi
 
 log "Backup done"

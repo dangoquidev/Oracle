@@ -54,7 +54,7 @@ describe('settings views', () => {
 
   it('lists every setting and the bot status', () => {
     const embed = renderSettings(configured, COMPETITIONS, t).embeds[0]?.toJSON();
-    expect(embed?.title).toBe('⚙️ Configuration de PronoBot');
+    expect(embed?.title).toBe('⚙️ Configuration d’Oracle');
     expect(embed?.fields?.map((field) => [field.name, field.value])).toEqual([
       ['État', '🟢 Actif'],
       ['Langue', 'Français'],

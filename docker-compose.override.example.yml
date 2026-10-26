@@ -1,0 +1,13 @@
+# Local development overrides. Copy to docker-compose.override.yml (ignored by git):
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+# docker compose merges it automatically with docker-compose.yml.
+services:
+  postgres:
+    # Reach the database from the host (pnpm dev, psql, drizzle-kit).
+    ports:
+      - '127.0.0.1:5432:5432'
+
+  bot:
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug

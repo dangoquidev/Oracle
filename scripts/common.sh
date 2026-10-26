@@ -1,9 +1,9 @@
 # shellcheck shell=bash
 # Shared helpers for the operation scripts (sourced, not executed).
-# PRONOBOT_DIR overrides the project directory (the one holding docker-compose.yml and .env).
+# ORACLE_DIR overrides the project directory (the one holding docker-compose.yml and .env).
 
-PRONOBOT_DIR="${PRONOBOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-ENV_FILE="$PRONOBOT_DIR/.env"
+ORACLE_DIR="${ORACLE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+ENV_FILE="$ORACLE_DIR/.env"
 
 log() {
   printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"
@@ -27,7 +27,7 @@ env_value() {
 }
 
 compose() {
-  docker compose --project-directory "$PRONOBOT_DIR" "$@"
+  docker compose --project-directory "$ORACLE_DIR" "$@"
 }
 
 has_service() {
@@ -51,7 +51,7 @@ send_alert() {
   local title="$1" detail="$2" url payload
   url="$(env_value ALERT_WEBHOOK_URL)"
   [[ -n "$url" ]] || return 0
-  payload="$(printf '{"username":"PronoBot alerts","allowed_mentions":{"parse":[]},"embeds":[{"title":"%s","description":"%s","color":15548997,"footer":{"text":"%s"}}]}' \
+  payload="$(printf '{"username":"Oracle alerts","allowed_mentions":{"parse":[]},"embeds":[{"title":"%s","description":"%s","color":15548997,"footer":{"text":"%s"}}]}' \
     "$(json_escape "$title")" "$(json_escape "$detail")" "$(json_escape "$(uname -n)")")"
   curl --silent --show-error --max-time 10 --header 'Content-Type: application/json' \
     --data "$payload" "$url" >/dev/null || log "Could not send the alert"
@@ -66,11 +66,11 @@ json_escape() {
   printf '%s' "$value"
 }
 
-[[ -f "$ENV_FILE" ]] || die "No .env in $PRONOBOT_DIR"
+[[ -f "$ENV_FILE" ]] || die "No .env in $ORACLE_DIR"
 # Used by the scripts sourcing this file.
 # shellcheck disable=SC2034
-DB_USER="$(env_value POSTGRES_USER pronobot)"
+DB_USER="$(env_value POSTGRES_USER oracle)"
 # shellcheck disable=SC2034
-DB_NAME="$(env_value POSTGRES_DB pronobot)"
+DB_NAME="$(env_value POSTGRES_DB oracle)"
 BACKUP_DIR="$(env_value BACKUP_DIR backups)"
-[[ "$BACKUP_DIR" = /* ]] || BACKUP_DIR="$PRONOBOT_DIR/$BACKUP_DIR"
+[[ "$BACKUP_DIR" = /* ]] || BACKUP_DIR="$ORACLE_DIR/$BACKUP_DIR"

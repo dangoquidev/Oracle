@@ -10,8 +10,8 @@ services:
     restart: unless-stopped
     logging: *logging
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-pronobot}
-      POSTGRES_USER: ${POSTGRES_USER:-pronobot}
+      POSTGRES_DB: ${POSTGRES_DB:-oracle}
+      POSTGRES_USER: ${POSTGRES_USER:-oracle}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql
@@ -23,12 +23,12 @@ services:
 
   bot:
     build: .
-    image: pronobot:latest
+    image: oracle:latest
     restart: unless-stopped
     logging: *logging
     env_file: .env
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-pronobot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pronobot}
+      DATABASE_URL: postgres://${POSTGRES_USER:-oracle}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-oracle}
     depends_on:
       postgres:
         condition: service_healthy

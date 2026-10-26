@@ -116,7 +116,7 @@ async function main(): Promise<void> {
   const leaguepedia = new LeaguepediaProvider(
     new LeaguepediaClient({
       credentials: { username: env.LEAGUEPEDIA_BOT_USER, password: env.LEAGUEPEDIA_BOT_PASSWORD },
-      userAgent: `PronoBot/${APP_VERSION} (${env.LEAGUEPEDIA_CONTACT})`,
+      userAgent: `Oracle/${APP_VERSION} (${env.LEAGUEPEDIA_CONTACT})`,
       minIntervalMs: env.LEAGUEPEDIA_MIN_INTERVAL_MS,
       logger: logger.child({ module: 'leaguepedia' }),
     }),
@@ -296,7 +296,7 @@ async function main(): Promise<void> {
       // Throttled like any alert, so a crash loop shows up as one message with a count.
       alerts?.dispatch('startup', {
         level: 'info',
-        title: 'PronoBot started',
+        title: 'Oracle started',
         details: { version: APP_VERSION, servers: String(ready.guilds.cache.size) },
       });
     })().catch((error: unknown) => {

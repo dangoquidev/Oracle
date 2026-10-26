@@ -1,7 +1,25 @@
 {
-  "name": "pronobot",
+  "name": "oracle",
   "version": "1.0.0",
-  "description": "Discord bot for League of Legends esports predictions",
+  "private": true,
+  "description": "Discord bot for League of Legends esports predictions (Worlds, LEC): button voting, points, leaderboards, recaps and stats",
+  "license": "UNLICENSED",
+  "author": "Alexandre Pereira De Almeida",
+  "homepage": "https://github.com/dangoquidev/Oracle#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dangoquidev/Oracle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dangoquidev/Oracle/issues"
+  },
+  "keywords": [
+    "discord-bot",
+    "league-of-legends",
+    "esports",
+    "predictions",
+    "leaguepedia"
+  ],
   "scripts": {
     "dev": "tsx watch --env-file=.env src/main.ts",
     "build": "tsc -p tsconfig.build.json",
@@ -15,7 +33,6 @@
     "test:all": "vitest run --coverage",
     "db:generate": "drizzle-kit generate"
   },
-  "license": "UNLICENSED",
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
     "discord.js": "14.27.0",
@@ -43,7 +60,6 @@
     "typescript-eslint": "8.72.0",
     "vitest": "5.0.5"
   },
-  "private": true,
   "type": "module",
   "engines": {
     "node": ">=26"

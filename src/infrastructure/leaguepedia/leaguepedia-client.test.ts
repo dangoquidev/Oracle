@@ -56,7 +56,7 @@ describe('LeaguepediaClient', () => {
   const client = (overrides: Partial<ConstructorParameters<typeof LeaguepediaClient>[0]> = {}) =>
     new LeaguepediaClient({
       credentials: { username: 'User@bot', password: 'secret' },
-      userAgent: 'PronoBot/test',
+      userAgent: 'Oracle/test',
       minIntervalMs: 1000,
       logger,
       fetch: api.fetch,

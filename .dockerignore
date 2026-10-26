@@ -4,6 +4,8 @@ coverage
 .git
 .github
 .env
+.env.*
+docker-compose.override.yml
 backups
 tests
 *.md

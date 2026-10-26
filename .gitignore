@@ -1,6 +1,14 @@
 node_modules
 dist
 coverage
-.env
-backups
 *.log
+
+# Local configuration and secrets: only the *.example files are committed.
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+
+# Database dumps
+backups
+*.dump

@@ -20,7 +20,7 @@ export const en: Messages = {
     botMissingPermissions: 'I am missing permissions to do that in this channel. Please tell an admin.',
   },
   pause: {
-    title: 'PronoBot is paused',
+    title: 'Oracle is paused',
     'role-deleted': 'The role to mention was deleted.',
     'channel-deleted': 'The announcement channel was deleted.',
     action: 'An admin must run `/configure` again to reactivate the bot.',
@@ -211,7 +211,7 @@ export const en: Messages = {
     publicationNotFound: 'This announcement could not be found.',
   },
   welcome: {
-    title: "Hi, I'm PronoBot! 👋",
+    title: "Hi, I'm Oracle! 👋",
     body:
       'I let your server predict League of Legends esports matches (Worlds, LEC…) week after week: ' +
       'points, leaderboards, and no money involved.',
@@ -298,7 +298,7 @@ export const en: Messages = {
     },
   },
   config: {
-    title: '⚙️ PronoBot settings',
+    title: '⚙️ Oracle settings',
     status: 'Status',
     active: '🟢 Active',
     paused: (reason: string) => `⏸️ Paused: ${reason}`,
@@ -311,7 +311,7 @@ export const en: Messages = {
     footer: 'Change a setting with /config <setting>, or run the whole wizard again with /configure.',
   },
   commands: {
-    configure: { description: 'Set up PronoBot on this server (step-by-step wizard)' },
+    configure: { description: 'Set up Oracle on this server (step-by-step wizard)' },
     matches: {
       description: "See the week's matches",
       week: 'Which week',
@@ -335,7 +335,7 @@ export const en: Messages = {
       competition: 'Only this competition',
     },
     admin: {
-      description: 'PronoBot administration commands',
+      description: 'Oracle administration commands',
       open: 'Reopen voting for a week or a match',
       close: 'Close voting for a week or a match',
       result: 'Force or correct a match result',
@@ -352,7 +352,7 @@ export const en: Messages = {
       reason: 'Reason (only shown to admins)',
     },
     config: {
-      description: 'View or change a PronoBot setting',
+      description: 'View or change a Oracle setting',
       show: 'View the current settings',
       channel: 'Change the announcement channel',
       role: 'Change the role to mention',
