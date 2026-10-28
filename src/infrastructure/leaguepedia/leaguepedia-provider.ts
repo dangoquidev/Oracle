@@ -100,12 +100,10 @@ export class LeaguepediaProvider implements MatchDataProvider {
       // Schedules reference teams by page name, which may carry a disambiguation suffix.
       const rows = await this.client.cargoQuery({
         tables: 'Teams=T',
-        fields: 'T.Name=Name, T.OverviewPage=Page, T.Short=Short, T.Image=Image',
+        fields: 'T.Name=Name, T.OverviewPage=Page, T.Short=Short',
         where: `T.Name IN ${cargoList(batch)} OR T.OverviewPage IN ${cargoList(batch)}`,
       });
-      const logos = await this.fetchLogoUrls(
-        rows.map((row) => blankToNull(row.Image)).filter((file) => file !== null),
-      );
+      const logos = await this.fetchLogoUrls(rows.map(logoFileOf).filter((file) => file !== null));
       const rowsByName = new Map<string, CargoRow>();
       for (const row of rows) {
         for (const key of [blankToNull(row.Page), blankToNull(row.Name)]) {
@@ -114,11 +112,11 @@ export class LeaguepediaProvider implements MatchDataProvider {
       }
       for (const name of batch) {
         const row = rowsByName.get(name);
-        const image = blankToNull(row?.Image);
+        const file = row ? logoFileOf(row) : null;
         teams.push({
           name,
           shortName: blankToNull(row?.Short) ?? withoutDisambiguation(name),
-          logoUrl: image === null ? null : (logos.get(image) ?? null),
+          logoUrl: file === null ? null : (logos.get(file) ?? null),
         });
       }
     }
@@ -216,4 +214,13 @@ function imageUrlOf(info: unknown): string | null {
   const thumb = 'thumburl' in info && typeof info.thumburl === 'string' ? info.thumburl : null;
   const full = 'url' in info && typeof info.url === 'string' ? info.url : null;
   return thumb ?? full;
+}
+
+/**
+ * The team's small square icon, as used in Leaguepedia schedules ("<Team>logo square.png"): it reads
+ * well as an emoji, unlike the large profile logo. Teams without one get no logo.
+ */
+function logoFileOf(row: CargoRow): string | null {
+  const page = blankToNull(row.Page);
+  return page === null ? null : `${page}logo square.png`;
 }

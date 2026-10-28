@@ -111,11 +111,12 @@ describe('LeaguepediaProvider', () => {
     expect(logger.entries.some((entry) => entry.level === 'warn')).toBe(true);
   });
 
-  it('fetches teams with their logo thumbnails, matching page names too', async () => {
+  it('fetches teams with their small square logo, matching page names too', async () => {
     const client = new StubClient(
       () => [
-        { Name: 'G2 Esports', Page: 'G2 Esports', Short: 'G2', Image: 'G2 Esportslogo square.png' },
-        { Name: 'LYON', Page: 'LYON (2024 American Team)', Short: '', Image: 'LYON_logo.png' },
+        { Name: 'G2 Esports', Page: 'G2 Esports', Short: 'G2' },
+        { Name: 'LYON', Page: 'LYON (2024 American Team)', Short: '' },
+        { Name: 'No Logo', Page: 'No Logo', Short: 'NL' },
       ],
       {
         query: {
@@ -124,8 +125,11 @@ describe('LeaguepediaProvider', () => {
               title: 'File:G2 Esportslogo square.png',
               imageinfo: [{ thumburl: 'https://img/g2-128.png', url: 'x' }],
             },
-            { title: 'File:LYON logo.png', imageinfo: [{ url: 'https://img/lyon.png' }] },
-            { title: 'File:Missing.png' },
+            {
+              title: 'File:LYON (2024 American Team)logo square.png',
+              imageinfo: [{ url: 'https://img/lyon.png' }],
+            },
+            { title: 'File:No Logologo square.png' },
             { nonsense: true },
           ],
         },
@@ -135,19 +139,29 @@ describe('LeaguepediaProvider', () => {
     const teams = await provider(client).fetchTeams([
       'G2 Esports',
       'LYON (2024 American Team)',
+      'No Logo',
       'Unknown (Team)',
     ]);
 
     expect(teams).toEqual([
       { name: 'G2 Esports', shortName: 'G2', logoUrl: 'https://img/g2-128.png' },
       { name: 'LYON (2024 American Team)', shortName: 'LYON', logoUrl: 'https://img/lyon.png' },
+      { name: 'No Logo', shortName: 'NL', logoUrl: null },
       { name: 'Unknown (Team)', shortName: 'Unknown', logoUrl: null },
     ]);
-    expect(client.plainQueries[0]).toMatchObject({ prop: 'imageinfo', iiurlwidth: '128' });
+    expect(client.plainQueries[0]).toMatchObject({
+      prop: 'imageinfo',
+      iiurlwidth: '128',
+      titles: [
+        'File:G2 Esportslogo square.png',
+        'File:LYON (2024 American Team)logo square.png',
+        'File:No Logologo square.png',
+      ].join('|'),
+    });
   });
 
-  it('skips the image lookup when no team has a logo', async () => {
-    const client = new StubClient(() => [{ Name: 'X', Page: 'X', Short: 'X', Image: '' }], { weird: true });
+  it('skips the image lookup when no team is found', async () => {
+    const client = new StubClient(() => [], { weird: true });
     expect(await provider(client).fetchTeams(['X'])).toEqual([{ name: 'X', shortName: 'X', logoUrl: null }]);
     expect(client.plainQueries).toEqual([]);
   });
