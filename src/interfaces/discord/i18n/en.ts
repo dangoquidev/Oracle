@@ -172,6 +172,10 @@ export const en: Messages = {
     cannotBanBot: 'Bots do not take part in predictions.',
     syncQueued: '🔄 Leaguepedia sync started: the schedule and results will be up to date in a few minutes.',
     syncThrottled: '⏳ A sync is already running or was started less than 10 minutes ago.',
+    emojisLinked: (count: number) => `🔗 ${count} logo${count > 1 ? 's' : ''} linked.`,
+    emojisComplete: '✅ Every team logo is in place.',
+    emojisMissing: (names: string) =>
+      `⚠️ Missing logos: ${names}\n-# Add them to the emoji server with exactly these names, then run \`/admin sync\` again.`,
     errors: {
       'target-not-found': 'Week or match not found. Use the command suggestions.',
       'no-open-match': 'No upcoming match in that selection.',

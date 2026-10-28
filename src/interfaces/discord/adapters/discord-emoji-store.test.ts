@@ -42,13 +42,20 @@ describe('DiscordEmojiStore', () => {
     expect(new Headers(requests[0]?.headers).get('user-agent')).toBe('Oracle/1.0 (contact)');
   });
 
-  it('reuses an emoji already named after the team, without downloading', async () => {
-    const { client, created } = fakeClient([{ id: 'manual', name: 'LYON', animated: false }]);
+  it('lists the emojis already on the emoji servers by name', async () => {
+    const { client } = fakeClient([
+      { id: 'manual', name: 'LYON', animated: false },
+      { id: 'other', name: 'IG', animated: false },
+    ]);
     const store = new DiscordEmojiStore(client, ['host'], 'ua', () =>
       Promise.reject(new Error('no network')),
     );
-    expect(await store.create('LYON', 'https://logo/lyon.png')).toBe('manual');
-    expect(created).toEqual([]);
+    expect(await store.existing()).toEqual(
+      new Map([
+        ['LYON', 'manual'],
+        ['IG', 'other'],
+      ]),
+    );
   });
 
   it('refuses anything that is not a small image, such as a bot check page', async () => {

@@ -171,13 +171,18 @@ describe('DrizzleCalendarRepository', () => {
   it('lists teams of recent or upcoming matches that need an emoji', async () => {
     await calendar.applySnapshot(twoWeeks());
     const missing = await calendar.findTeamsMissingEmoji(new Date('2026-07-26T00:00:00Z'), 10);
-    expect(missing.map((t) => t.shortName)).toEqual(['G2', 'KC']);
+    // FNC has no logo: it is listed too, an emoji added by hand can still fill the gap.
+    expect(missing.map((t) => [t.shortName, t.logoUrl !== null])).toEqual([
+      ['G2', true],
+      ['FNC', false],
+      ['KC', true],
+    ]);
 
     const g2 = missing.find((t) => t.shortName === 'G2');
     await calendar.setTeamEmoji(g2?.id ?? 0, '123456');
     expect(
       (await calendar.findTeamsMissingEmoji(new Date('2026-07-26T00:00:00Z'), 10)).map((t) => t.shortName),
-    ).toEqual(['KC']);
+    ).toEqual(['FNC', 'KC']);
     expect(await calendar.findTeamsMissingEmoji(new Date('2026-12-01T00:00:00Z'), 10)).toEqual([]);
   });
 
@@ -189,6 +194,6 @@ describe('DrizzleCalendarRepository', () => {
       teams: snapshot.teams.map((t) => ({ ...t, logoUrl: null })),
     });
     const missing = await calendar.findTeamsMissingEmoji(new Date('2026-07-26T00:00:00Z'), 10);
-    expect(missing.map((t) => t.logoUrl)).toEqual(['https://img/g2.png', 'https://img/kc.png']);
+    expect(missing.map((t) => t.logoUrl)).toEqual(['https://img/g2.png', null, 'https://img/kc.png']);
   });
 });

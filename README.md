@@ -104,7 +104,7 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/admin recalc`                                 | Gérer le serveur | Recalcule tous les points du serveur                                         |
 | `/admin ban joueur:… [raison]`                  | Gérer le serveur | Exclut un joueur des pronos, des classements et des récaps                   |
 | `/admin unban joueur:…`                         | Gérer le serveur | Réintègre un joueur exclu, avec tous ses points                              |
-| `/admin sync`                                   | Gérer le serveur | Force une synchro Leaguepedia (une toutes les 10 minutes au plus)            |
+| `/admin sync`                                   | Gérer le serveur | Force une synchro Leaguepedia et fait le point sur les logos manquants       |
 
 Les réponses de `/matches`, `/mypronos`, `/config` et `/admin` sont éphémères ; `/leaderboard`, `/stats` et `/prono` répondent dans le salon, sans
 mentionner personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
@@ -345,7 +345,8 @@ En cas de problème :
 - **Logos absents** : vérifier que le bot a « Gérer les expressions » sur les serveurs `EMOJI_GUILD_IDS` et qu'il reste
   de la place (50 emojis sans boost). Si les logs disent `Logo host did not return an image (got text/html)`, le CDN de
   Fandom soumet le serveur à une vérification anti-bot : ajouter les logos à la main sur le serveur d'emojis, nommés
-  comme le nom court de l'équipe (`T1`, `KC`, `LYON`…). Le bot réutilise tout emoji qui porte déjà ce nom.
+  comme le nom court de l'équipe, en majuscules (`T1`, `KC`, `IG`, `LYON`…). Le bot réutilise tout emoji qui porte déjà ce
+  nom : `/admin sync` les associe tout de suite et liste les logos encore manquants.
 
 ## Architecture
 

@@ -548,7 +548,12 @@ export class StubMatchDataProvider implements MatchDataProvider {
 
 export class StubEmojiStore implements TeamEmojiStore {
   readonly created: { name: string; imageUrl: string }[] = [];
+  readonly onServers = new Map<string, string>();
   failFor = new Set<string>();
+
+  existing(): Promise<ReadonlyMap<string, string>> {
+    return Promise.resolve(this.onServers);
+  }
 
   create(name: string, imageUrl: string): Promise<string> {
     if (this.failFor.has(name)) return Promise.reject(new Error('upload failed'));

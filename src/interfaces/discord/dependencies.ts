@@ -1,5 +1,6 @@
 import type { Logger } from '../../application/ports/logger.js';
 import type { DecideMatchResult, RecalculatePoints } from '../../application/use-cases/admin-results.js';
+import type { CheckTeamEmojis } from '../../application/use-cases/check-team-emojis.js';
 import type { CheckGuildAccess } from '../../application/use-cases/check-guild-access.js';
 import type { ConfigureGuild } from '../../application/use-cases/configure-guild.js';
 import type { GetConfigurationDraft } from '../../application/use-cases/get-configuration-draft.js';
@@ -57,6 +58,7 @@ export interface DiscordDependencies {
     readonly updateGuildSettings: UpdateGuildSettings;
     readonly managePlayerBans: ManagePlayerBans;
     readonly requestScheduleSync: RequestScheduleSync;
+    readonly checkTeamEmojis: CheckTeamEmojis;
     readonly getPlayerStats: GetPlayerStats;
     readonly getRoundPredictions: GetRoundPredictions;
     readonly shareFinishedPredictions: ShareFinishedPredictions;

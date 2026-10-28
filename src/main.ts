@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 import { DecideMatchResult, RecalculatePoints } from './application/use-cases/admin-results.js';
+import { CheckTeamEmojis } from './application/use-cases/check-team-emojis.js';
 import { CheckGuildAccess } from './application/use-cases/check-guild-access.js';
 import { ConfigureGuild } from './application/use-cases/configure-guild.js';
 import { GetConfigurationDraft } from './application/use-cases/get-configuration-draft.js';
@@ -248,6 +249,11 @@ async function main(): Promise<void> {
       updateGuildSettings: new UpdateGuildSettings(guilds, permissions, COMPETITIONS),
       managePlayerBans: new ManagePlayerBans(guilds, bans, clock),
       requestScheduleSync: new RequestScheduleSync(guilds, scheduleSyncTrigger, logger),
+      checkTeamEmojis: new CheckTeamEmojis(
+        syncTeamEmojis,
+        refreshAnnouncements,
+        env.EMOJI_GUILD_IDS.length > 0,
+      ),
       getRoundPredictions: new GetRoundPredictions(listWeekMatches, predictions, bans),
       shareFinishedPredictions: new ShareFinishedPredictions(guilds, messenger, logger),
       getPlayerStats: new GetPlayerStats(guilds, predictions, calendar, standings, bans, COMPETITIONS, clock),

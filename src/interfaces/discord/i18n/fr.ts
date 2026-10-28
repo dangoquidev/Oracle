@@ -170,6 +170,11 @@ export const fr = {
     syncQueued:
       '🔄 Synchro Leaguepedia lancée : le calendrier et les résultats seront à jour d’ici quelques minutes.',
     syncThrottled: '⏳ Une synchro est déjà en cours ou a été lancée il y a moins de 10 minutes.',
+    emojisLinked: (count: number) =>
+      `🔗 ${count} logo${count > 1 ? 's' : ''} associé${count > 1 ? 's' : ''}.`,
+    emojisComplete: '✅ Tous les logos des équipes sont en place.',
+    emojisMissing: (names: string) =>
+      `⚠️ Logos manquants : ${names}\n-# Ajoute-les sur le serveur d’emojis avec exactement ces noms, puis relance \`/admin sync\`.`,
     errors: {
       'target-not-found': 'Semaine ou match introuvable. Utilise les suggestions de la commande.',
       'no-open-match': 'Aucun match à venir dans cette sélection.',

@@ -43,7 +43,8 @@ export interface CalendarSnapshot {
 export interface TeamMissingEmoji {
   readonly id: TeamId;
   readonly shortName: string;
-  readonly logoUrl: string;
+  /** Null when the provider has no logo: only an emoji added by hand can fill the gap. */
+  readonly logoUrl: string | null;
 }
 
 /** A season that has at least one scheduled match. */
@@ -69,7 +70,7 @@ export interface CalendarRepository {
   findCompetitionsAwaitingResults(from: Date, to: Date): Promise<CompetitionId[]>;
   /** Which of these provider team names are already cached. */
   findKnownTeamNames(names: readonly string[]): Promise<Set<string>>;
-  /** Teams of upcoming matches that have a logo but no emoji yet. */
+  /** Teams of recent or upcoming matches without an emoji yet (with or without a logo). */
   findTeamsMissingEmoji(upcomingFrom: Date, limit: number): Promise<TeamMissingEmoji[]>;
   setTeamEmoji(teamId: TeamId, emojiId: string): Promise<void>;
   /** Seasons of these competitions, oldest first. */

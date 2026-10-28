@@ -20,7 +20,6 @@ interface Host {
 /**
  * Stores team logos as custom emojis on dedicated "emoji host" servers.
  * Bots can use emojis of any server they are in, so logos render everywhere.
- * An emoji already named after the team (e.g. added by hand) is reused as is.
  */
 export class DiscordEmojiStore implements TeamEmojiStore {
   constructor(
@@ -30,11 +29,13 @@ export class DiscordEmojiStore implements TeamEmojiStore {
     private readonly fetchImage: typeof fetch = globalThis.fetch.bind(globalThis),
   ) {}
 
+  async existing(): Promise<ReadonlyMap<string, string>> {
+    const emojis = (await this.hosts()).flatMap((host) => host.emojis);
+    return new Map(emojis.flatMap((emoji) => (emoji.name ? [[emoji.name, emoji.id] as const] : [])));
+  }
+
   async create(name: string, imageUrl: string): Promise<string> {
     const hosts = await this.hosts();
-    const existing = hosts.flatMap((host) => host.emojis).find((emoji) => emoji.name === name);
-    if (existing) return existing.id;
-
     const host = hosts.find(
       ({ guild, emojis }) =>
         emojis.filter((emoji) => !emoji.animated).length < STATIC_EMOJI_SLOTS[guild.premiumTier],

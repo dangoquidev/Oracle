@@ -1,19 +1,4 @@
-import {
-  aliasedTable,
-  and,
-  asc,
-  eq,
-  gte,
-  inArray,
-  isNotNull,
-  lte,
-  isNull,
-  lt,
-  max,
-  min,
-  or,
-  sql,
-} from 'drizzle-orm';
+import { aliasedTable, and, asc, eq, gte, inArray, lte, isNull, lt, max, min, or, sql } from 'drizzle-orm';
 import type {
   CalendarRepository,
   CalendarSnapshot,
@@ -275,10 +260,10 @@ export class DrizzleCalendarRepository implements CalendarRepository {
       .selectDistinct({ id: teams.id, shortName: teams.shortName, logoUrl: teams.logoUrl })
       .from(teams)
       .innerJoin(matches, or(eq(matches.team1Id, teams.id), eq(matches.team2Id, teams.id)))
-      .where(and(isNull(teams.emojiId), isNotNull(teams.logoUrl), gte(matches.scheduledAt, since)))
+      .where(and(isNull(teams.emojiId), gte(matches.scheduledAt, since)))
       .orderBy(asc(teams.id))
       .limit(limit);
-    return rows.flatMap((row) => (row.logoUrl === null ? [] : [{ ...row, logoUrl: row.logoUrl }]));
+    return rows;
   }
 
   async setTeamEmoji(teamId: TeamId, emojiId: string): Promise<void> {

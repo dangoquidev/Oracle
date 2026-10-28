@@ -142,16 +142,29 @@ export async function handleAdminCommand(
       await handleBan(interaction, deps, t, subcommand);
       return;
     case 'sync': {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const result = await deps.useCases.requestScheduleSync.execute(
         interaction.guildId,
         interaction.user.id,
       );
-      const content = result.ok
-        ? t.admin.syncQueued
-        : result.error === 'throttled'
-          ? t.admin.syncThrottled
-          : t.access.unconfigured;
-      await reply(interaction, content);
+      if (!result.ok && result.error === 'guild-not-active') {
+        await interaction.editReply(t.access.unconfigured);
+        return;
+      }
+      // Emojis added by hand are linked right away; the report says which logos are still missing.
+      const emojis = await deps.useCases.checkTeamEmojis.execute();
+      const lines = [
+        result.ok ? t.admin.syncQueued : t.admin.syncThrottled,
+        ...(emojis && emojis.linked > 0 ? [t.admin.emojisLinked(emojis.linked)] : []),
+        ...(emojis
+          ? [
+              emojis.missing.length > 0
+                ? t.admin.emojisMissing(emojis.missing.join(', '))
+                : t.admin.emojisComplete,
+            ]
+          : []),
+      ];
+      await interaction.editReply(lines.join('\n'));
       return;
     }
   }
