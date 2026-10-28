@@ -33,11 +33,15 @@ export class SyncTeamEmojis {
   }
 }
 
-/** Discord emoji names: 2–32 characters, letters, digits and underscores. */
+/**
+ * Discord emoji names: 2–32 characters, letters, digits and underscores. Always upper case, so an
+ * emoji added by hand is simply named after the team in capitals ("IG", not "iG").
+ */
 export function emojiNameFor(shortName: string): string {
   const cleaned = shortName
     .normalize('NFD')
     .replace(/[^A-Za-z0-9_]/g, '')
+    .toUpperCase()
     .slice(0, 32);
   return cleaned.length >= 2 ? cleaned : `team_${cleaned}`;
 }

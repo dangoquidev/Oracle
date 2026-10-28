@@ -40,7 +40,8 @@ describe('SyncTeamEmojis', () => {
 describe('emojiNameFor', () => {
   it('keeps only characters Discord accepts', () => {
     expect(emojiNameFor('G2')).toBe('G2');
-    expect(emojiNameFor('KC Blue')).toBe('KCBlue');
+    expect(emojiNameFor('iG')).toBe('IG');
+    expect(emojiNameFor('KC Blue')).toBe('KCBLUE');
     expect(emojiNameFor('Bilibili Gaming Dreamsmart-Long-Name-Here')).toHaveLength(32);
   });
 
