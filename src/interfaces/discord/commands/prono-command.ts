@@ -23,6 +23,7 @@ export function pronoCommand(competitions: readonly Competition[]): SlashCommand
   return command;
 }
 
+/** Posted in the channel for everyone to see, without pinging the players listed. */
 export async function handlePronoCommand(
   interaction: ChatInputCommandInteraction<'cached'>,
   deps: DiscordDependencies,
@@ -43,7 +44,7 @@ export async function handlePronoCommand(
 
   const useEmojis = interaction.appPermissions.has(PermissionFlagsBits.UseExternalEmojis);
   await interaction.reply({
-    ...renderRoundPredictions(result.value, locale, useEmojis),
-    flags: MessageFlags.Ephemeral,
+    ...renderRoundPredictions(result.value, result.value.locale, useEmojis),
+    allowedMentions: { parse: [] },
   });
 }

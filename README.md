@@ -106,7 +106,7 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/admin unban joueur:…`                         | Gérer le serveur | Réintègre un joueur exclu, avec tous ses points                              |
 | `/admin sync`                                   | Gérer le serveur | Force une synchro Leaguepedia (une toutes les 10 minutes au plus)            |
 
-Les réponses de `/matches`, `/mypronos`, `/prono`, `/config` et `/admin` sont éphémères ; `/leaderboard` et `/stats` répondent dans le salon, sans
+Les réponses de `/matches`, `/mypronos`, `/config` et `/admin` sont éphémères ; `/leaderboard`, `/stats` et `/prono` répondent dans le salon, sans
 mentionner personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
 propose en autocomplétion les splits et tournois passés. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
 valeurs en autocomplétion : matchs à venir pour `open`/`close`, matchs récents pour `result`/`cancel`, et pour `résultat`, les
