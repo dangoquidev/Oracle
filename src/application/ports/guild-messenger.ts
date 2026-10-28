@@ -3,7 +3,8 @@ import type { PauseReason } from '../../domain/guild/guild.js';
 import type { LeaderboardEntry } from '../../domain/leaderboard/leaderboard.js';
 import type { VoteDistribution } from '../../domain/prediction/vote-distribution.js';
 import type { MatchOutcome } from '../../domain/scoring/match-outcome.js';
-import type { ChannelId, GuildId, RoleId } from '../../domain/shared/ids.js';
+import type { PredictionChoice } from '../../domain/prediction/prediction-choice.js';
+import type { ChannelId, GuildId, RoleId, UserId } from '../../domain/shared/ids.js';
 import type { MatchView, WeekView } from '../read-models/views.js';
 import type { PublicationId } from './publication-repository.js';
 
@@ -38,6 +39,19 @@ export interface VoteReveal {
   readonly competitionName: string;
   readonly weekName: string;
   readonly matches: readonly { readonly match: MatchView; readonly distribution: VoteDistribution }[];
+}
+
+/** A player's picks, posted in the channel once they predicted every open match of an announcement. */
+export interface SharedPredictions {
+  readonly guildId: GuildId;
+  readonly channelId: ChannelId;
+  readonly locale: Locale;
+  readonly userId: UserId;
+  readonly groups: readonly {
+    readonly competitionName: string;
+    readonly weekName: string;
+    readonly picks: readonly { readonly match: MatchView; readonly choice: PredictionChoice }[];
+  }[];
 }
 
 export interface RecapMatchLine {
@@ -92,4 +106,6 @@ export interface GuildMessenger {
   revealVotes(reveal: VoteReveal): Promise<void>;
   sendMatchRecap(recap: MatchRecap): Promise<void>;
   sendSeasonRecap(recap: SeasonRecap): Promise<void>;
+  /** Posts a player's picks in the channel, without pinging them. */
+  sharePredictions(shared: SharedPredictions): Promise<void>;
 }

@@ -128,6 +128,12 @@ export const en: Messages = {
     banned: '⛔ Banned from predictions on this server: left out of the leaderboards.',
     bot: 'Bots do not take part in predictions.',
   },
+  roundPredictions: {
+    title: (competition: string, week: string) => `Predictions · ${competition} · ${week}`,
+    none: 'no predictions',
+    sharedTitle: '📝 Predictions locked in',
+    sharedIntro: (player: string) => `${player} made their predictions:`,
+  },
   matches: {
     title: (competition: string, week: string) => `${competition} · ${week}`,
     empty: 'No week found for that period.',
@@ -329,6 +335,10 @@ export const en: Messages = {
     stats: {
       description: 'View a player’s stats (yours by default)',
       user: 'Player',
+    },
+    prono: {
+      description: "See everyone's predictions for the current round",
+      competition: 'Filter on one competition',
     },
     mypronos: {
       description: 'See your picks, results and points for the week',

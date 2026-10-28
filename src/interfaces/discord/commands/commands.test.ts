@@ -12,6 +12,7 @@ describe('command definitions', () => {
       'config',
       'matches',
       'mypronos',
+      'prono',
       'leaderboard',
       'stats',
       'admin',

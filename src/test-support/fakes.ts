@@ -12,6 +12,7 @@ import type {
   LockReminder,
   MatchRecap,
   SeasonRecap,
+  SharedPredictions,
   VoteReveal,
   WeekAnnouncement,
 } from '../application/ports/guild-messenger.js';
@@ -463,6 +464,7 @@ export class RecordingMessenger implements GuildMessenger {
   readonly reveals: VoteReveal[] = [];
   readonly matchRecaps: MatchRecap[] = [];
   readonly seasonRecaps: SeasonRecap[] = [];
+  readonly shared: SharedPredictions[] = [];
   deletedMessages = new Set<string>();
   failWith: Error | null = null;
 
@@ -505,6 +507,11 @@ export class RecordingMessenger implements GuildMessenger {
   sendSeasonRecap(recap: SeasonRecap): Promise<void> {
     if (this.failWith) return Promise.reject(this.failWith);
     this.seasonRecaps.push(recap);
+    return Promise.resolve();
+  }
+  sharePredictions(shared: SharedPredictions): Promise<void> {
+    if (this.failWith) return Promise.reject(this.failWith);
+    this.shared.push(shared);
     return Promise.resolve();
   }
 }

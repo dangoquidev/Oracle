@@ -125,6 +125,12 @@ export const fr = {
     banned: '⛔ Exclu des pronos sur ce serveur : n’apparaît pas dans les classements.',
     bot: 'Les bots ne participent pas aux pronos.',
   },
+  roundPredictions: {
+    title: (competition: string, week: string) => `Pronos · ${competition} · ${week}`,
+    none: 'aucun prono',
+    sharedTitle: '📝 Pronos validés',
+    sharedIntro: (player: string) => `${player} a fait ses pronos :`,
+  },
   matches: {
     title: (competition: string, week: string) => `${competition} · ${week}`,
     empty: 'Aucune semaine trouvée pour cette période.',
@@ -331,6 +337,10 @@ export const fr = {
     stats: {
       description: 'Voir les stats d’un joueur (les tiennes par défaut)',
       user: 'Joueur',
+    },
+    prono: {
+      description: 'Voir les pronos de tout le monde sur le round en cours',
+      competition: 'Filtrer sur une compétition',
     },
     mypronos: {
       description: 'Voir tes pronos, résultats et points de la semaine',

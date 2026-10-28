@@ -47,14 +47,15 @@ export function renderWeekMatches(
 }
 
 function stateLine(item: WeekMatchesItem, t: Messages): string {
-  const result = item.state === 'closed' ? outcomeLabel(item.outcome, item.match, t) : null;
-  const state =
-    item.state === 'open'
-      ? t.matches.state.open(relative(item.lockAt))
-      : result
-        ? `${t.matches.state.closed} · **${result}**`
-        : t.matches.state[item.state];
+  const state = matchStateLabel(item, t);
   return item.distribution && item.distribution.total > 0
     ? `${state} · ${voteLine(item.match, item.distribution, t)}`
     : state;
+}
+
+/** "🟢 votes open, closing in 2 h", "🏁 over · **G2 2-1 FNC**"… */
+export function matchStateLabel(item: WeekMatchesItem, t: Messages): string {
+  if (item.state === 'open') return t.matches.state.open(relative(item.lockAt));
+  const result = item.state === 'closed' ? outcomeLabel(item.outcome, item.match, t) : null;
+  return result ? `${t.matches.state.closed} · **${result}**` : t.matches.state[item.state];
 }

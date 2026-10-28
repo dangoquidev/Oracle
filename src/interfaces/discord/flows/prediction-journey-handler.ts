@@ -64,6 +64,12 @@ export async function handlePredictionInteraction(
           ? renderJourneyStep(refreshed, nextIndex, locale, useEmojis, t.journey.saved)
           : renderJourneySummary(refreshed, locale, useEmojis, t.journey.saved),
       );
+      // Once every open match has a pick, the picks are posted in the channel (after answering the click).
+      await deps.useCases.shareFinishedPredictions.execute(
+        interaction.guildId,
+        interaction.user.id,
+        refreshed,
+      );
       return;
     }
   }

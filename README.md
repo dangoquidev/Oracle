@@ -47,10 +47,13 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
    vote dans la même annonce dès qu'ils sont connus).
 5. Le bouton ouvre un parcours éphémère match par match : vainqueur pour un Bo1, score exact pour un Bo3/Bo5.
    Les pronos sont modifiables jusqu'à la fermeture des votes. Un vote compte si l'interaction Discord est antérieure au lock.
+   Dès qu'un joueur a un prono sur chaque match encore ouvert de l'annonce, le bot poste ses choix dans le salon
+   (« 📝 Pronos validés », sans le notifier), et à nouveau à chaque fois qu'il les modifie.
 6. Si les rappels sont activés, le bot mentionne le rôle X minutes avant chaque fermeture des votes (une fois par groupe de
    matchs qui ferment ensemble).
-7. Les votes restent cachés jusqu'au lock. Ensuite, le bot publie la répartition des votes du serveur (ex. 70 % G2 / 30 % FNC,
-   avec le score le plus joué), qui s'affiche aussi dans le parcours et dans `/matches`.
+7. Les choix de chacun sont publics : `/prono` montre qui a pronostiqué quoi sur le round en cours, même avant la fermeture.
+   Au lock, le bot publie la répartition des votes du serveur (ex. 70 % G2 / 30 % FNC, avec le score le plus joué), qui
+   s'affiche aussi dans le parcours et dans `/matches`.
 8. L'annonce publiée est mise à jour automatiquement quand le calendrier change (équipes connues, horaires, logos), sans
    mentionner le rôle une seconde fois.
 9. Pendant les fenêtres de match, les résultats sont récupérés toutes les 5 minutes, puis les points sont calculés : bon
@@ -91,6 +94,7 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/config competitions compétition:… active:…`   | Gérer le serveur | Active ou désactive une compétition (au moins une doit rester active)        |
 | `/matches [semaine] [compétition]`              | Tous             | Matchs de la semaine actuelle, précédente ou suivante, avec l'état des votes |
 | `/mypronos [semaine] [compétition]`             | Tous             | Tes pronos de la semaine, les résultats, tes points et ton total             |
+| `/prono [compétition]`                          | Tous             | Les pronos de tout le monde sur le round en cours, regroupés par choix       |
 | `/leaderboard [période] [compétition] [saison]` | Tous             | Classement de la semaine, du split/tournoi (par défaut) ou all time          |
 | `/stats [joueur]`                               | Tous             | Bilan d'un joueur (le tien par défaut) : rangs, réussite, séries, favoris    |
 | `/admin open semaine:… \| match:…`              | Gérer le serveur | Rouvre les votes jusqu'au début de chaque match                              |
@@ -102,7 +106,7 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/admin unban joueur:…`                         | Gérer le serveur | Réintègre un joueur exclu, avec tous ses points                              |
 | `/admin sync`                                   | Gérer le serveur | Force une synchro Leaguepedia (une toutes les 10 minutes au plus)            |
 
-Les réponses de `/matches`, `/mypronos`, `/config` et `/admin` sont éphémères ; `/leaderboard` et `/stats` répondent dans le salon, sans
+Les réponses de `/matches`, `/mypronos`, `/prono`, `/config` et `/admin` sont éphémères ; `/leaderboard` et `/stats` répondent dans le salon, sans
 mentionner personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
 propose en autocomplétion les splits et tournois passés. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
 valeurs en autocomplétion : matchs à venir pour `open`/`close`, matchs récents pour `result`/`cancel`, et pour `résultat`, les
