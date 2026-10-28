@@ -23,7 +23,9 @@ export class SyncTeamEmojis {
         await this.calendar.setTeamEmoji(team.id, emojiId);
         created += 1;
       } catch (error) {
-        this.logger.warn({ teamId: team.id, err: error }, 'Could not create team emoji');
+        // The reason only: a failed upload carries the whole image in its request body.
+        const reason = error instanceof Error ? error.message : String(error);
+        this.logger.warn({ teamId: team.id, team: team.shortName, reason }, 'Could not create team emoji');
       }
     }
     if (created > 0) this.logger.info({ created }, 'Team emojis created');

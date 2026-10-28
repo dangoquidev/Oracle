@@ -127,7 +127,11 @@ async function main(): Promise<void> {
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
   const messenger = new DiscordGuildMessenger(client, logger);
   const permissions = new DiscordPermissionChecker(client);
-  const emojiStore = new DiscordEmojiStore(client, env.EMOJI_GUILD_IDS);
+  const emojiStore = new DiscordEmojiStore(
+    client,
+    env.EMOJI_GUILD_IDS,
+    `Oracle/${APP_VERSION} (${env.LEAGUEPEDIA_CONTACT})`,
+  );
 
   // ── Use cases ─────────────────────────────────────────────────────────────
   const registerGuild = new RegisterGuild(guilds, messenger, logger);

@@ -343,7 +343,9 @@ En cas de problème :
 - **Un serveur ne reçoit plus rien** : `/config show` sur ce serveur dit s'il est en pause (salon ou rôle supprimé) et
   comment le réactiver.
 - **Logos absents** : vérifier que le bot a « Gérer les expressions » sur les serveurs `EMOJI_GUILD_IDS` et qu'il reste
-  de la place (50 emojis sans boost).
+  de la place (50 emojis sans boost). Si les logs disent `Logo host did not return an image (got text/html)`, le CDN de
+  Fandom soumet le serveur à une vérification anti-bot : ajouter les logos à la main sur le serveur d'emojis, nommés
+  comme le nom court de l'équipe (`T1`, `KC`, `LYON`…). Le bot réutilise tout emoji qui porte déjà ce nom.
 
 ## Architecture
 
