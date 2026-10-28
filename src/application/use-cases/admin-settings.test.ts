@@ -127,14 +127,12 @@ describe('ManagePlayerBans', () => {
 });
 
 describe('RequestScheduleSync', () => {
-  it('queues a sync unless one was requested too recently', async () => {
-    const guilds = new InMemoryGuildRepository().add(activeGuild('g1'));
+  it('queues a sync from any server unless one was requested too recently', async () => {
     const trigger = new StubSyncTrigger();
-    const sync = new RequestScheduleSync(guilds, trigger, new SilentLogger());
-    expect(await sync.execute('g1', 'admin')).toEqual({ ok: true, value: undefined });
+    const sync = new RequestScheduleSync(trigger, new SilentLogger());
+    expect(await sync.execute('unconfigured', 'admin')).toEqual({ ok: true, value: undefined });
     trigger.accept = false;
     expect(await sync.execute('g1', 'admin')).toEqual({ ok: false, error: 'throttled' });
-    expect(await sync.execute('nope', 'admin')).toEqual({ ok: false, error: 'guild-not-active' });
     expect(trigger.requests).toBe(2);
   });
 });

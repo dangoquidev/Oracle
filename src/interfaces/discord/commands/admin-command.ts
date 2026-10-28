@@ -18,6 +18,7 @@ import type { Locale } from '../../../domain/guild/guild-settings.js';
 import type { MatchResult } from '../../../domain/match/match.js';
 import { winnerOfScore } from '../../../domain/match/series-score.js';
 import { choicesFor, type PredictionChoice } from '../../../domain/prediction/prediction-choice.js';
+import { canAdminister } from '../access.js';
 import { decodeChoice, encodeChoice } from '../components/custom-id.js';
 import type { DiscordDependencies } from '../dependencies.js';
 import { resultLabel, shortName, truncate } from '../embeds/formatting.js';
@@ -117,7 +118,7 @@ export async function handleAdminCommand(
   deps: DiscordDependencies,
 ): Promise<void> {
   const t = messages(localeFor(interaction.locale, null));
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
+  if (!canAdminister(interaction, deps)) {
     await reply(interaction, t.access.adminOnly);
     return;
   }
@@ -147,10 +148,6 @@ export async function handleAdminCommand(
         interaction.guildId,
         interaction.user.id,
       );
-      if (!result.ok && result.error === 'guild-not-active') {
-        await interaction.editReply(t.access.unconfigured);
-        return;
-      }
       // Emojis added by hand are linked right away; the report says which logos are still missing.
       const emojis = await deps.useCases.checkTeamEmojis.execute();
       const lines = [

@@ -81,7 +81,7 @@ async function main(): Promise<void> {
     ? new AlertDispatcher(
         new DiscordWebhookSink(
           env.ALERT_WEBHOOK_URL,
-          env.ALERT_MENTION_USER_ID ?? null,
+          env.ADMIN_ID ?? null,
           baseLogger.child({ module: 'alerts' }),
         ),
         clock,
@@ -212,6 +212,7 @@ async function main(): Promise<void> {
     competitions: COMPETITIONS,
     wizardSessions: new WizardSessionStore(),
     emojiHostGuildIds: new Set(env.EMOJI_GUILD_IDS),
+    operatorId: env.ADMIN_ID ?? null,
     useCases: {
       checkGuildAccess: new CheckGuildAccess(guilds),
       getConfigurationDraft: new GetConfigurationDraft(guilds, COMPETITIONS),
@@ -248,7 +249,7 @@ async function main(): Promise<void> {
       getGuildSettings: new GetGuildSettings(guilds),
       updateGuildSettings: new UpdateGuildSettings(guilds, permissions, COMPETITIONS),
       managePlayerBans: new ManagePlayerBans(guilds, bans, clock),
-      requestScheduleSync: new RequestScheduleSync(guilds, scheduleSyncTrigger, logger),
+      requestScheduleSync: new RequestScheduleSync(scheduleSyncTrigger, logger),
       checkTeamEmojis: new CheckTeamEmojis(
         syncTeamEmojis,
         refreshAnnouncements,

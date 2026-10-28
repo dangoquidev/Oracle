@@ -13,6 +13,7 @@ import { LOCALES, type Locale, type RecapFrequency } from '../../../domain/guild
 import { isEmptyPatch, type SettingsPatch } from '../../../domain/guild/settings-patch.js';
 import type { LockMode } from '../../../domain/lock/lock-policy.js';
 import type { Weekday } from '../../../domain/schedule/publish-schedule.js';
+import { canAdminister } from '../access.js';
 import type { DiscordDependencies } from '../dependencies.js';
 import {
   currentSettingMessage,
@@ -228,7 +229,7 @@ export async function handleConfigCommand(
   deps: DiscordDependencies,
 ): Promise<void> {
   const t = messages(localeFor(interaction.locale, null));
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
+  if (!canAdminister(interaction, deps)) {
     await reply(interaction, t.access.adminOnly);
     return;
   }

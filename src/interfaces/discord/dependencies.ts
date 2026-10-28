@@ -26,7 +26,7 @@ import type {
   UpdateGuildSettings,
 } from '../../application/use-cases/update-guild-settings.js';
 import type { Competition } from '../../domain/competition/competition.js';
-import type { GuildId } from '../../domain/shared/ids.js';
+import type { GuildId, UserId } from '../../domain/shared/ids.js';
 import type { WizardSessionStore } from './flows/wizard-session-store.js';
 
 /** Everything the Discord layer needs, wired by the composition root. */
@@ -36,6 +36,8 @@ export interface DiscordDependencies {
   readonly wizardSessions: WizardSessionStore;
   /** Servers used only to host team emojis: never greeted nor configured. */
   readonly emojiHostGuildIds: ReadonlySet<GuildId>;
+  /** The bot operator (ADMIN_ID): may administer any server, configured or not. */
+  readonly operatorId: UserId | null;
   readonly useCases: {
     readonly checkGuildAccess: CheckGuildAccess;
     readonly getConfigurationDraft: GetConfigurationDraft;

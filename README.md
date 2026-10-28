@@ -106,6 +106,9 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/admin unban joueur:…`                         | Gérer le serveur | Réintègre un joueur exclu, avec tous ses points                              |
 | `/admin sync`                                   | Gérer le serveur | Force une synchro Leaguepedia et fait le point sur les logos manquants       |
 
+L'exploitant du bot (`ADMIN_ID`) a les droits « Gérer le serveur » partout et peut lancer `/admin` sur un serveur pas encore
+configuré (`/admin sync` notamment, qui ne dépend d'aucun serveur).
+
 Les réponses de `/matches`, `/mypronos`, `/config` et `/admin` sont éphémères ; `/leaderboard`, `/stats` et `/prono` répondent dans le salon, sans
 mentionner personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
 propose en autocomplétion les splits et tournois passés. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
@@ -169,7 +172,7 @@ Copier `.env.example` vers `.env`. Le fichier `.env` n'est jamais commité.
 | `LOG_LEVEL`                                           | non     | `info`                | `fatal` à `trace`                                                  |
 | `HEALTH_PORT`                                         | non     | `3000`                | Port de `GET /health`                                              |
 | `ALERT_WEBHOOK_URL`                                   | non     |                       | Webhook Discord des alertes (désactivé si vide)                    |
-| `ALERT_MENTION_USER_ID`                               | non     |                       | Utilisateur mentionné sur les alertes d'erreur                     |
+| `ADMIN_ID`                                            | non     |                       | Ton id Discord : mentionné sur les alertes, admin sur tout serveur |
 | `BACKUP_DIR`                                          | non     | `backups`             | Dossier des dumps (relatif au projet ou absolu)                    |
 | `BACKUP_KEEP_DAILY` / `BACKUP_KEEP_WEEKLY`            | non     | `7` / `4`             | Dumps quotidiens / hebdomadaires conservés                         |
 | `BACKUP_RSYNC_TARGET`                                 | non     |                       | Copie hors site par rsync (ex. `user@nas:/srv/backups/oracle`)     |
@@ -265,7 +268,7 @@ l'exploitant dans un salon privé :
 - 🔴 **sauvegarde en échec** (envoyée par `scripts/backup.sh`).
 
 Une même alerte part au plus une fois toutes les 30 minutes ; la suivante indique combien d'occurrences ont été
-regroupées. Une boucle de crash produit donc un message, pas des centaines. `ALERT_MENTION_USER_ID` mentionne quelqu'un
+regroupées. Une boucle de crash produit donc un message, pas des centaines. `ADMIN_ID` mentionne l'exploitant
 sur les erreurs. Les secrets ne sont jamais inclus : seuls les champs simples du contexte sont repris.
 
 ## Sauvegardes

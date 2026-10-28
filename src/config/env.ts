@@ -33,8 +33,11 @@ const envSchema = z.object({
 
   /** Discord webhook receiving operator alerts (errors, failing health, restarts). Disabled when empty. */
   ALERT_WEBHOOK_URL: z.preprocess(emptyToUndefined, z.url({ protocol: /^https$/ }).optional()),
-  /** User pinged on error alerts. */
-  ALERT_MENTION_USER_ID: z.preprocess(emptyToUndefined, z.string().regex(/^\d+$/).optional()),
+  /**
+   * Discord user id of the bot operator: pinged on error alerts, and allowed to run every admin
+   * command on any server, even one not configured yet or without the "Manage Server" permission.
+   */
+  ADMIN_ID: z.preprocess(emptyToUndefined, z.string().regex(/^\d+$/).optional()),
 });
 
 function emptyToUndefined(value: unknown): unknown {

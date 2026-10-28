@@ -16,6 +16,7 @@ import { handleMyPredictionsCommand } from './commands/mypronos-command.js';
 import { handlePronoCommand } from './commands/prono-command.js';
 import { handleStatsCommand } from './commands/stats-command.js';
 import { CONFIGURE_SCOPE, PREDICTION_SCOPE } from './components/custom-id.js';
+import { isOperator } from './access.js';
 import type { DiscordDependencies } from './dependencies.js';
 import { handleConfigureInteraction } from './flows/configure-wizard-handler.js';
 import { handlePredictionInteraction } from './flows/prediction-journey-handler.js';
@@ -77,7 +78,10 @@ async function route(interaction: Interaction, deps: DiscordDependencies): Promi
       return;
     }
     const handler = GATED_COMMANDS[interaction.commandName];
-    if (!handler || !(await passesAccessGate(interaction, deps))) return;
+    if (!handler) return;
+    // The operator may administer a server before it is configured (e.g. /admin sync).
+    const bypass = interaction.commandName === 'admin' && isOperator(interaction, deps);
+    if (!bypass && !(await passesAccessGate(interaction, deps))) return;
     await handler(interaction, deps);
     return;
   }

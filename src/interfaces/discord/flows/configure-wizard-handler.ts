@@ -1,7 +1,6 @@
 import {
   EmbedBuilder,
   MessageFlags,
-  PermissionFlagsBits,
   type AnySelectMenuInteraction,
   type ButtonInteraction,
   type ModalSubmitInteraction,
@@ -9,6 +8,7 @@ import {
 import type { Weekday } from '../../../domain/schedule/publish-schedule.js';
 import type { GuildSettingsDraft } from '../../../domain/guild/guild-settings.js';
 import { isValidTimeZone } from '../../../domain/shared/time-zone.js';
+import { canAdminister } from '../access.js';
 import { decodeConfigure } from '../components/custom-id.js';
 import { BRAND_COLOR, type MessageView } from '../components/payload.js';
 import type { DiscordDependencies } from '../dependencies.js';
@@ -29,7 +29,7 @@ export async function handleConfigureInteraction(
   if (!decoded) return;
 
   const fallbackT = messages(localeFor(interaction.locale, null));
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
+  if (!canAdminister(interaction, deps)) {
     await interaction.reply({ content: fallbackT.access.adminOnly, flags: MessageFlags.Ephemeral });
     return;
   }
