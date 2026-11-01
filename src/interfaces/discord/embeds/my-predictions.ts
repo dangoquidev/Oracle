@@ -15,7 +15,13 @@ import {
   truncate,
 } from './formatting.js';
 
-export function renderMyPredictions(result: MyPredictions, locale: Locale, useEmojis: boolean): MessageView {
+/** A player's picks, results and points, posted for the whole server. */
+export function renderMyPredictions(
+  result: MyPredictions,
+  locale: Locale,
+  useEmojis: boolean,
+  playerName: string,
+): MessageView {
   const t = messages(locale);
   if (result.weeks.length === 0) return { content: t.myPredictions.empty, embeds: [], components: [] };
 
@@ -36,7 +42,7 @@ export function renderMyPredictions(result: MyPredictions, locale: Locale, useEm
     }
     const embed = new EmbedBuilder()
       .setColor(BRAND_COLOR)
-      .setTitle(t.myPredictions.title(week.competitionName, week.week.name))
+      .setTitle(truncate(t.myPredictions.title(playerName, week.competitionName, week.week.name), 256))
       .setDescription(truncate(lines.length > 0 ? lines.join('\n') : t.announcement.empty, 4096));
     if (totals.picked > 0) {
       const breakdown = [

@@ -82,11 +82,12 @@ export const fr = {
     seasonNotFound: 'Saison introuvable. Utilise les suggestions de la commande.',
   },
   myPredictions: {
-    title: (competition: string, week: string) => `Mes pronos · ${competition} · ${week}`,
+    title: (player: string, competition: string, week: string) =>
+      `Pronos de ${player} · ${competition} · ${week}`,
     empty: 'Aucune semaine trouvée pour cette période.',
     noPick: 'pas de prono',
     noPickYet: (closes: string) => `🟢 pas encore de prono, fermeture ${closes}`,
-    pick: (pick: string) => `ton prono : **${pick}**`,
+    pick: (pick: string) => `prono : **${pick}**`,
     editable: (closes: string) => `modifiable jusqu’à ${closes}`,
     total: 'Total de la semaine',
     totals: (points: string, picked: number) => `**${points}** · ${picked} prono${picked > 1 ? 's' : ''}`,

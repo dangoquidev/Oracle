@@ -9,6 +9,7 @@ import type { Competition } from '../../../domain/competition/competition.js';
 import type { DiscordDependencies } from '../dependencies.js';
 import { renderMyPredictions } from '../embeds/my-predictions.js';
 import { localeFor, messages } from '../i18n/index.js';
+import { postInChannel } from '../public-message.js';
 import { addCompetitionOption, addWeekOption, weekOffsetOf } from './command-options.js';
 
 export function myPredictionsCommand(competitions: readonly Competition[]): SlashCommandBuilder {
@@ -24,6 +25,7 @@ export function myPredictionsCommand(competitions: readonly Competition[]): Slas
   return command;
 }
 
+/** Posted in the channel as a bot message, so the server sees whose picks they are. */
 export async function handleMyPredictionsCommand(
   interaction: ChatInputCommandInteraction<'cached'>,
   deps: DiscordDependencies,
@@ -35,9 +37,8 @@ export async function handleMyPredictionsCommand(
     interaction.options.getString('competition'),
   );
 
-  const locale = localeFor(interaction.locale, result.ok ? result.value.locale : null);
   if (!result.ok) {
-    const t = messages(locale);
+    const t = messages(localeFor(interaction.locale, null));
     const content =
       result.error === 'competition-not-enabled' ? t.matches.competitionNotEnabled : t.access.unconfigured;
     await interaction.reply({ content, flags: MessageFlags.Ephemeral });
@@ -45,8 +46,11 @@ export async function handleMyPredictionsCommand(
   }
 
   const useEmojis = interaction.appPermissions.has(PermissionFlagsBits.UseExternalEmojis);
-  await interaction.reply({
-    ...renderMyPredictions(result.value, locale, useEmojis),
-    flags: MessageFlags.Ephemeral,
-  });
+  const view = renderMyPredictions(
+    result.value,
+    result.value.locale,
+    useEmojis,
+    interaction.member.displayName,
+  );
+  await postInChannel(interaction, view);
 }

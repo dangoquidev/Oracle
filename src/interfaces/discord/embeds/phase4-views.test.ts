@@ -133,10 +133,11 @@ describe('renderMyPredictions', () => {
       ]),
       'fr',
       false,
+      'Alice',
     );
     const embed = view.embeds[0]?.toJSON();
-    expect(embed?.title).toBe('Mes pronos · LEC · Week 1');
-    expect(embed?.description).toContain('-# ton prono : **2-1 G2** · 🏁 **G2 2-1 FNC** · +3 pts');
+    expect(embed?.title).toBe('Pronos de Alice · LEC · Week 1');
+    expect(embed?.description).toContain('-# prono : **2-1 G2** · 🏁 **G2 2-1 FNC** · +3 pts');
     expect(embed?.description).toMatch(/✅ <t:\d+:t> · \*\*G2\*\* vs \*\*FNC\*\*/);
     expect(embed?.description).toMatch(
       /▫️ <t:\d+:t> · \*\*FNC\*\* vs \*\*G2\*\*\n-# 🟢 pas encore de prono, fermeture <t:\d+:R>/,
@@ -151,8 +152,10 @@ describe('renderMyPredictions', () => {
       result([item({ match: played, state: 'locked' }), item({ match: upcoming, state: 'cancelled' })], 0),
       'en',
       false,
+      'Bob',
     );
     const embed = view.embeds[0]?.toJSON();
+    expect(embed?.title).toBe("Bob's picks · LEC · Week 1");
     expect(embed?.description).toContain('➖');
     expect(embed?.description).toContain('-# no pick · 🔒 voting closed');
     expect(embed?.description).toContain('🚫');
@@ -160,9 +163,9 @@ describe('renderMyPredictions', () => {
   });
 
   it('says when there is no week', () => {
-    expect(renderMyPredictions({ locale: 'en', timeZone: 'UTC', weeks: [] }, 'en', false).content).toBe(
-      'No week found for that period.',
-    );
+    expect(
+      renderMyPredictions({ locale: 'en', timeZone: 'UTC', weeks: [] }, 'en', false, 'Bob').content,
+    ).toBe('No week found for that period.');
   });
 });
 

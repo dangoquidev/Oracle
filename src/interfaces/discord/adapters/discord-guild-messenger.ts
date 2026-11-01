@@ -6,7 +6,6 @@ import {
   type Client,
   type Guild,
   type GuildTextBasedChannel,
-  type MessageCreateOptions,
   type MessageEditOptions,
 } from 'discord.js';
 import type {
@@ -22,7 +21,7 @@ import type { Logger } from '../../../application/ports/logger.js';
 import type { Locale } from '../../../domain/guild/guild-settings.js';
 import type { PauseReason } from '../../../domain/guild/guild.js';
 import type { ChannelId, GuildId } from '../../../domain/shared/ids.js';
-import type { MessageView } from '../components/payload.js';
+import { toCreateOptions, type MessageView } from '../components/payload.js';
 import { renderLockReminder, renderVoteReveal } from '../embeds/lock-notices.js';
 import { renderPauseNotice, renderWelcome } from '../embeds/notices.js';
 import { renderMatchRecap, renderSeasonRecap } from '../embeds/recaps.js';
@@ -152,14 +151,6 @@ function writableAdminChannel(guild: Guild): GuildTextBasedChannel | null {
 function canUseExternalEmojis(channel: GuildTextBasedChannel, guild: Guild): boolean {
   const me = guild.members.me;
   return me ? channel.permissionsFor(me).has(PermissionFlagsBits.UseExternalEmojis) : false;
-}
-
-function toCreateOptions(view: MessageView): MessageCreateOptions {
-  return {
-    ...(view.content ? { content: view.content } : {}),
-    embeds: view.embeds,
-    components: view.components,
-  };
 }
 
 function toEditOptions(view: MessageView): MessageEditOptions {

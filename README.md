@@ -93,7 +93,7 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 | `/config publish [jour] [heure] [minute]`       | Gérer le serveur | Jour et heure de publication des matchs de la semaine                        |
 | `/config competitions compétition:… active:…`   | Gérer le serveur | Active ou désactive une compétition (au moins une doit rester active)        |
 | `/matches [semaine] [compétition]`              | Tous             | Matchs de la semaine actuelle, précédente ou suivante, avec l'état des votes |
-| `/mypronos [semaine] [compétition]`             | Tous             | Tes pronos de la semaine, les résultats, tes points et ton total             |
+| `/mypronos [semaine] [compétition]`             | Tous             | Tes pronos de la semaine, les résultats, tes points et ton total, pour tous  |
 | `/prono [compétition]`                          | Tous             | Les pronos de tout le monde sur le round en cours, regroupés par choix       |
 | `/leaderboard [période] [compétition] [saison]` | Tous             | Classement de la semaine, du split/tournoi (par défaut) ou all time          |
 | `/stats [joueur]`                               | Tous             | Bilan d'un joueur (le tien par défaut) : rangs, réussite, séries, favoris    |
@@ -109,8 +109,9 @@ mises en cache dans PostgreSQL. Les commandes Discord ne tapent jamais l'API dir
 L'exploitant du bot (`ADMIN_ID`) a les droits « Gérer le serveur » partout et peut lancer `/admin` sur un serveur pas encore
 configuré (`/admin sync` notamment, qui ne dépend d'aucun serveur).
 
-Les réponses de `/matches`, `/mypronos`, `/config` et `/admin` sont éphémères ; `/leaderboard`, `/stats` et `/prono` répondent dans le salon, sans
-mentionner personne. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
+`/matches`, `/mypronos`, `/prono`, `/leaderboard` et `/stats` postent leur résultat comme un message du bot dans le salon,
+visible par tous et sans mentionner personne. Le parcours de vote, `/config`, `/admin` et les messages d'erreur restent
+visibles uniquement par la personne concernée. Sans compétition, `/leaderboard` additionne les compétitions activées (toutes pour l'all time) ; l'option `saison`
 propose en autocomplétion les splits et tournois passés. Les options `semaine`, `match` et `résultat` de `/admin` proposent leurs
 valeurs en autocomplétion : matchs à venir pour `open`/`close`, matchs récents pour `result`/`cancel`, et pour `résultat`, les
 scores possibles selon le format du match.

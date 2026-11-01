@@ -9,6 +9,7 @@ import type { Competition } from '../../../domain/competition/competition.js';
 import type { DiscordDependencies } from '../dependencies.js';
 import { renderRoundPredictions } from '../embeds/round-predictions.js';
 import { localeFor, messages } from '../i18n/index.js';
+import { postInChannel } from '../public-message.js';
 import { addCompetitionOption } from './command-options.js';
 
 export function pronoCommand(competitions: readonly Competition[]): SlashCommandBuilder {
@@ -23,7 +24,7 @@ export function pronoCommand(competitions: readonly Competition[]): SlashCommand
   return command;
 }
 
-/** Posted in the channel for everyone to see, without pinging the players listed. */
+/** Posted in the channel as a bot message, without pinging the players listed. */
 export async function handlePronoCommand(
   interaction: ChatInputCommandInteraction<'cached'>,
   deps: DiscordDependencies,
@@ -43,8 +44,5 @@ export async function handlePronoCommand(
   }
 
   const useEmojis = interaction.appPermissions.has(PermissionFlagsBits.UseExternalEmojis);
-  await interaction.reply({
-    ...renderRoundPredictions(result.value, result.value.locale, useEmojis),
-    allowedMentions: { parse: [] },
-  });
+  await postInChannel(interaction, renderRoundPredictions(result.value, result.value.locale, useEmojis));
 }

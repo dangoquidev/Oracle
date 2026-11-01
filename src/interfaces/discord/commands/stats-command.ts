@@ -8,6 +8,7 @@ import {
 import type { DiscordDependencies } from '../dependencies.js';
 import { renderPlayerStats } from '../embeds/stats.js';
 import { localeFor, messages } from '../i18n/index.js';
+import { postInChannel } from '../public-message.js';
 
 export function statsCommand(): SlashCommandBuilder {
   const fr = messages('fr').commands.stats;
@@ -27,7 +28,7 @@ export function statsCommand(): SlashCommandBuilder {
   return command;
 }
 
-/** Posted in the channel like /leaderboard, without pinging the player. */
+/** Posted in the channel as a bot message, without pinging the player. */
 export async function handleStatsCommand(
   interaction: ChatInputCommandInteraction<'cached'>,
   deps: DiscordDependencies,
@@ -49,8 +50,8 @@ export async function handleStatsCommand(
     return;
   }
   const useEmojis = interaction.appPermissions.has(PermissionFlagsBits.UseExternalEmojis);
-  await interaction.reply({
-    ...renderPlayerStats(result.value, displayName, result.value.locale, useEmojis),
-    allowedMentions: { parse: [] },
-  });
+  await postInChannel(
+    interaction,
+    renderPlayerStats(result.value, displayName, result.value.locale, useEmojis),
+  );
 }

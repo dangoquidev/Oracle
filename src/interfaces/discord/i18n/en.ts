@@ -85,11 +85,12 @@ export const en: Messages = {
     seasonNotFound: 'Season not found. Use the command suggestions.',
   },
   myPredictions: {
-    title: (competition: string, week: string) => `My picks · ${competition} · ${week}`,
+    title: (player: string, competition: string, week: string) =>
+      `${player}'s picks · ${competition} · ${week}`,
     empty: 'No week found for that period.',
     noPick: 'no pick',
     noPickYet: (closes: string) => `🟢 no pick yet, closes ${closes}`,
-    pick: (pick: string) => `your pick: **${pick}**`,
+    pick: (pick: string) => `pick: **${pick}**`,
     editable: (closes: string) => `editable until ${closes}`,
     total: 'Week total',
     totals: (points: string, picked: number) => `**${points}** · ${picked} pick${picked > 1 ? 's' : ''}`,

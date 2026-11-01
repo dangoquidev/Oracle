@@ -10,6 +10,7 @@ import type { Competition } from '../../../domain/competition/competition.js';
 import type { DiscordDependencies } from '../dependencies.js';
 import { renderLeaderboard } from '../embeds/leaderboard.js';
 import { localeFor, messages } from '../i18n/index.js';
+import { postInChannel } from '../public-message.js';
 import { addCompetitionOption } from './command-options.js';
 
 const PERIODS: readonly LeaderboardPeriod[] = ['week', 'season', 'alltime'];
@@ -49,7 +50,7 @@ export function leaderboardCommand(competitions: readonly Competition[]): SlashC
   return command;
 }
 
-/** Posted in the channel: a leaderboard is meant to be seen by everyone. */
+/** Posted in the channel as a bot message: a leaderboard is meant to be seen by everyone. */
 export async function handleLeaderboardCommand(
   interaction: ChatInputCommandInteraction<'cached'>,
   deps: DiscordDependencies,
@@ -70,10 +71,7 @@ export async function handleLeaderboardCommand(
     await interaction.reply({ content, flags: MessageFlags.Ephemeral });
     return;
   }
-  await interaction.reply({
-    ...renderLeaderboard(result.value, result.value.locale),
-    allowedMentions: { parse: [] },
-  });
+  await postInChannel(interaction, renderLeaderboard(result.value, result.value.locale));
 }
 
 export async function handleLeaderboardAutocomplete(

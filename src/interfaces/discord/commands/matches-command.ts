@@ -9,6 +9,7 @@ import type { Competition } from '../../../domain/competition/competition.js';
 import type { DiscordDependencies } from '../dependencies.js';
 import { renderWeekMatches } from '../embeds/week-matches.js';
 import { localeFor, messages } from '../i18n/index.js';
+import { postInChannel } from '../public-message.js';
 import { addCompetitionOption, addWeekOption, weekOffsetOf } from './command-options.js';
 
 export function matchesCommand(competitions: readonly Competition[]): SlashCommandBuilder {
@@ -24,6 +25,7 @@ export function matchesCommand(competitions: readonly Competition[]): SlashComma
   return command;
 }
 
+/** Posted in the channel as a bot message, for everyone to see. */
 export async function handleMatchesCommand(
   interaction: ChatInputCommandInteraction<'cached'>,
   deps: DiscordDependencies,
@@ -32,9 +34,8 @@ export async function handleMatchesCommand(
   const competitionId = interaction.options.getString('competition');
   const result = await deps.useCases.listWeekMatches.execute(interaction.guildId, offset, competitionId);
 
-  const locale = localeFor(interaction.locale, result.ok ? result.value.locale : null);
   if (!result.ok) {
-    const t = messages(locale);
+    const t = messages(localeFor(interaction.locale, null));
     const content =
       result.error === 'competition-not-enabled' ? t.matches.competitionNotEnabled : t.access.unconfigured;
     await interaction.reply({ content, flags: MessageFlags.Ephemeral });
@@ -42,8 +43,5 @@ export async function handleMatchesCommand(
   }
 
   const useEmojis = interaction.appPermissions.has(PermissionFlagsBits.UseExternalEmojis);
-  await interaction.reply({
-    ...renderWeekMatches(result.value, locale, useEmojis),
-    flags: MessageFlags.Ephemeral,
-  });
+  await postInChannel(interaction, renderWeekMatches(result.value, result.value.locale, useEmojis));
 }
